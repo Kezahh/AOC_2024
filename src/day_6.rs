@@ -1,6 +1,7 @@
 const INPUTS_FOLDER: &str = "inputs/day_6";
 
 use core::fmt;
+use std::collections::HashMap;
 
 use crate::generic;
 
@@ -23,7 +24,7 @@ impl From<char> for Tile {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 struct Position {
     row: usize,
     col: usize,
@@ -63,7 +64,7 @@ struct DetailedTile {
     approach_direction: Option<Direction>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy, Hash, Eq)]
 enum Direction {
     Up,
     Down,
@@ -84,6 +85,15 @@ impl From<char> for Direction {
 }
 
 impl Direction {
+    fn iter() -> impl Iterator<Item = Direction> {
+        return [
+            Self::Up,
+            Self::Down,
+            Self::Left,
+            Self::Right,
+        ].iter().copied();
+    }
+
     fn rotate_90_CW(&self) -> Self {
         match self {
             Self::Up => Self::Right,
@@ -112,6 +122,7 @@ impl Direction {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 struct TileMap {
     tiles: Vec<Vec<Tile>>,
 }
@@ -211,6 +222,25 @@ impl TileMap {
             return None;
         }
     }
+
+    fn get_adjacent_positions(&self, position: &Position) -> Vec<Position> {
+        let mut adjacent_positions: Vec<Position> = Vec::new();
+
+        if position.row > 0 {
+            adjacent_positions.push(position.walk(1, Direction::Up));
+        }
+        if position.row < (self.tiles.len() - 1) {
+            adjacent_positions.push(position.walk(1, Direction::Down));
+        }
+        if position.col > 0 {
+            adjacent_positions.push(position.walk(1, Direction::Left));
+        }
+        if position.col < (self.tiles[0].len() - 1) {
+            adjacent_positions.push(position.walk(1, Direction::Right));
+        }
+
+        return adjacent_positions;
+    }
 }
 
 fn sort_positions(pos1: &Position, pos2: &Position) -> (Position, Position, Direction) {
@@ -279,7 +309,7 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
     let mut total_distance: usize = 0;
     let mut row: usize = guard_start_row;
     let mut col: usize = guard_start_col;
-    let mut direction: Direction = guard_start_direction;
+    let mut direction: Direction = guard_start_direction.clone();
     let mut new_distance: usize = 0;
     let mut tiles_walked: Vec<Vec<Tile>> = vec![vec![Tile::Empty; tile_map.tiles[0].len()]; tile_map.tiles.len()];
 
@@ -347,99 +377,97 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
         }
         return count_walked;
     } else {
-        let mut new_obstacle_map: Vec<Vec<Tile>> = vec![vec![Tile::Empty; tile_map.tiles[0].len()]; tile_map.tiles.len()];
-        let mut current_tile: DetailedTile;
-        for row in 0..approached_obstructions.len() {
-            for col in 0..approached_obstructions[0].len() {
-                current_tile = approached_obstructions[row][col].clone();
-                if current_tile.tile_type == Tile::Obstacle {
-                    println!("Working on DetailedTile at row: {}, col: {}, approach_direction: {:?}", row, col, current_tile.approach_direction);
-                    // These are the positions of the Guard just in front of the obstacle.
-                    direction = current_tile.approach_direction.unwrap();
-
-                    let start_guard_position: Position = Position::from_obstacle(row, col, &direction);
-                    println!("start_guard_position = {:?}, direction = {:?}", start_guard_position, direction);
-                    let mut CW_guard_positions: Vec<Position> = Vec::new();
-                    let mut CCW_guard_positions: Vec<Position> = Vec::new();
-
-                    println!("Start CW from position = {:?}, direction = {:?}", start_guard_position, direction);
-                    let mut next_CW_guard_position: Option<Position> = tile_map.get_CW_guard_position(&start_guard_position, &direction);
-                    println!("\tnext_CW_guard_position = {:?}", next_CW_guard_position);
-                    if next_CW_guard_position.is_some() {
-                        CW_guard_positions.push(next_CW_guard_position.as_ref().unwrap().clone());
-                        next_CW_guard_position = tile_map.get_CW_guard_position(&next_CW_guard_position.unwrap(), &direction.rotate_90_CW());
-                        println!("\tnext_CW_guard_position = {:?}", next_CW_guard_position);
-                        if next_CW_guard_position.is_some() {
-                            CW_guard_positions.push(next_CW_guard_position.as_ref().unwrap().clone());
-                        }
-                    }
-
-                    println!("Start CCW from position = {:?}, direction = {:?}", start_guard_position, direction);
-                    let mut next_CCW_guard_position: Option<Position> = tile_map.get_CCW_guard_position(&start_guard_position, &direction);
-                    println!("\tnext_CCW_guard_position = {:?}", next_CCW_guard_position);
-                    if next_CCW_guard_position.is_some() {
-                        CCW_guard_positions.push(next_CCW_guard_position.as_ref().unwrap().clone());
-                        next_CCW_guard_position = tile_map.get_CCW_guard_position(&next_CCW_guard_position.unwrap(), &direction.rotate_90_CCW());
-                        println!("\tnext_CCW_guard_position = {:?}", next_CCW_guard_position);
-                        if next_CCW_guard_position.is_some() {
-                            CCW_guard_positions.push(next_CCW_guard_position.as_ref().unwrap().clone());
-                        }
-                    }
-
-
-
-                    // Check to place new obstacle
-                    let mut guard_positions: Vec<Position>;
-                    let mut new_obstacle_position: Position;
-                    if CW_guard_positions.len() == 2 {
-                        guard_positions = vec![start_guard_position.clone(), CW_guard_positions[0].clone(), CW_guard_positions[1].clone()];
-                        let new_guard_position = get_new_guard_position(&guard_positions);
-                        new_obstacle_position = get_obstacle_from_guard_position(&new_guard_position, &direction.rotate_90_CCW());
-                        if !tile_map.check_obstacle_between(&new_obstacle_position, &start_guard_position) &&
-                                !tile_map.check_obstacle_between(&new_obstacle_position, &CW_guard_positions[1]){
-                            println!("\tGuard Positions = {:?}", guard_positions);
-                            println!("\tAdding CW new obstacle at {:?}", new_obstacle_position);
-                            new_obstacle_map[new_obstacle_position.row][new_obstacle_position.col] = Tile::Obstacle;
-                        }
-                    }
-
-                    if CCW_guard_positions.len() == 2{
-                        guard_positions = vec![start_guard_position.clone(), CCW_guard_positions[0].clone(), CCW_guard_positions[1].clone()];
-                        let new_guard_position = get_new_guard_position(&guard_positions);
-                        new_obstacle_position = get_obstacle_from_guard_position(&new_guard_position, &direction.rotate_90_CW());
-                        if !tile_map.check_obstacle_between(&new_obstacle_position, &start_guard_position) &&
-                                !tile_map.check_obstacle_between(&new_obstacle_position, &CCW_guard_positions[1]) {
-                            println!("\tGuard Positions = {:?}", guard_positions);
-                            println!("\tAdding CCW new obstacle at {:?}", new_obstacle_position);
-                            new_obstacle_map[new_obstacle_position.row][new_obstacle_position.col] = Tile::Obstacle;
-                        }
-                    }
-
-                    if CW_guard_positions.len() >= 1 && CCW_guard_positions.len() >= 1 {
-                        guard_positions = vec![start_guard_position.clone(), CW_guard_positions[0].clone(), CCW_guard_positions[0].clone()];
-                        let new_guard_position = get_new_guard_position(&guard_positions);
-                        new_obstacle_position = get_obstacle_from_guard_position(&new_guard_position, &direction.reverse());
-                        if !tile_map.check_obstacle_between(&new_obstacle_position, &guard_positions[1]) &&
-                                !tile_map.check_obstacle_between(&new_obstacle_position, &guard_positions[2]) &&
-                                !tile_map.check_obstacle_between(&new_obstacle_position, &guard_positions[0]) {
-                            println!("\tAdding mid new obstacle at {:?}", new_obstacle_position);
-                            new_obstacle_map[new_obstacle_position.row][new_obstacle_position.col] = Tile::Obstacle;
-                        }
-                    }
+        let mut walked_positions: Vec<Position> = Vec::new();
+        for r in 0..tiles_walked.len() {
+            for c in 0..tiles_walked[0].len() {
+                if tiles_walked[r][c] == Tile::Walked {
+                    walked_positions.push(Position{row: r, col: c});
                 }
             }
         }
-        print_map(&new_obstacle_map, Tile::Obstacle);
 
-        let mut count_new_obstacles: usize = 0;
-        for r in new_obstacle_map {
-            for c in r {
-                if c == Tile::Obstacle {
-                    count_new_obstacles += 1;
+        let mut new_obstacle_positions: Vec<Position> = Vec::new();
+
+        for p in walked_positions {
+            println!("Running loop for position: {:?}", p);
+            let mut walked_map_count: Vec<Vec<Vec<usize>>> = vec![vec![Vec::new(); tile_map.tiles[0].len()]; tile_map.tiles.len()];
+
+            let mut new_tile_map = tile_map.clone();
+            new_tile_map.tiles[p.row][p.col] = Tile::Obstacle;
+            
+            guard_on_map = true;
+            row = guard_start_row;
+            col = guard_start_col;
+            direction = guard_start_direction.clone();
+
+            let mut obstacle_adjacents: HashMap<Position, HashMap<Direction, bool>> = HashMap::new();
+            let mut adjacent_hashmap: HashMap<Direction, bool> = HashMap::new();
+            for d in Direction::iter() {
+                adjacent_hashmap.insert(d, false);
+            }
+            for adj in tile_map.get_adjacent_positions(&p) {
+                obstacle_adjacents.insert(adj, adjacent_hashmap.clone());
+            }
+            
+            let mut step_index = 0;
+            let mut completed_loop = false;
+            while guard_on_map && !completed_loop {
+                (guard_on_map, new_distance) = new_tile_map.get_distance_to_obstacle(row, col, &direction);
+
+                let current_position = Position{row: row, col: col};
+                if obstacle_adjacents.contains_key(&current_position) {
+                    println!("obstacle adjacents contains key");
+                    if *obstacle_adjacents.get_mut(&current_position).unwrap().get(&direction).unwrap() {
+                        println!("\tHit {:?} twice!!", current_position);
+                        completed_loop = true;
+                    } else {
+                        println!("\tRemembering {:?}", current_position);
+                        obstacle_adjacents.get_mut(&current_position).unwrap().insert(direction, true);
+                    }
                 }
+                match direction {
+                    Direction::Up => {
+                        for r in (row - new_distance)..row {
+                            walked_map_count[r][col].push(step_index);
+                            step_index += 1;
+                        }
+                        row -= new_distance;
+                    }
+                    Direction::Down => {
+                        for r in (row..(row + new_distance + 1)) {
+                            walked_map_count[r][col].push(step_index);
+                            step_index += 1;
+                        }
+                        row += new_distance;
+                    },
+                    Direction::Left => {
+                        for c in ((col - new_distance)..col) {
+                            walked_map_count[row][c].push(step_index);
+                            step_index += 1;
+                        }
+                        col -= new_distance;
+                    },
+                    Direction::Right => {
+                        for c in (col..(col + new_distance + 1)) {
+                            walked_map_count[row][c].push(step_index);
+                            step_index += 1;
+                        }
+                        col += new_distance;
+                    },
+                };
+                direction = direction.rotate_90_CW()
+            }
+
+            if guard_on_map && completed_loop {
+                new_obstacle_positions.push(p);
             }
         }
-        return count_new_obstacles;
+
+        println!("{:?}", new_obstacle_positions);
+
+
+
+        return 0;
     }
 }
 

@@ -241,6 +241,28 @@ impl TileMap {
 
         return adjacent_positions;
     }
+
+    fn get_all_obstruction_positions(&self) -> Vec<Position> {
+        let mut obstruction_positions: Vec<Position> = Vec::new();
+        for r in 0..self.tiles.len() {
+            for c in 0..self.tiles[0].len() {
+                if self.tiles[r][c] == Tile::Obstacle {
+                    obstruction_positions.push(Position{ row: r, col: c });
+                }
+            }
+        }
+
+        return obstruction_positions;
+    }
+
+    fn get_all_obstruction_adjacents(&self) -> Vec<Position> {
+        let mut obstruction_adjacents: Vec<Position> = Vec::new();
+        for p in self.get_all_obstruction_positions() {
+            obstruction_adjacents.append(&mut self.get_adjacent_positions(&p));
+        }
+
+        return obstruction_adjacents;
+    }
 }
 
 fn sort_positions(pos1: &Position, pos2: &Position) -> (Position, Position, Direction) {
@@ -405,7 +427,7 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
             for d in Direction::iter() {
                 adjacent_hashmap.insert(d, false);
             }
-            for adj in tile_map.get_adjacent_positions(&p) {
+            for adj in new_tile_map.get_all_obstruction_adjacents() {
                 obstacle_adjacents.insert(adj, adjacent_hashmap.clone());
             }
             
@@ -416,12 +438,12 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
 
                 let current_position = Position{row: row, col: col};
                 if obstacle_adjacents.contains_key(&current_position) {
-                    println!("obstacle adjacents contains key");
+                    // println!("obstacle adjacents contains key");
                     if *obstacle_adjacents.get_mut(&current_position).unwrap().get(&direction).unwrap() {
                         println!("\tHit {:?} twice!!", current_position);
                         completed_loop = true;
                     } else {
-                        println!("\tRemembering {:?}", current_position);
+                        // println!("\tRemembering {:?}", current_position);
                         obstacle_adjacents.get_mut(&current_position).unwrap().insert(direction, true);
                     }
                 }
@@ -467,7 +489,7 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
 
 
 
-        return 0;
+        return new_obstacle_positions.len();
     }
 }
 
@@ -557,14 +579,14 @@ mod tests {
     fn example_2() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input_example_1.txt", true);
         println!("Answer = {:?}", answer);
-        assert!(answer == 30);
+        assert!(answer == 6);
     }
 
     #[test]
     fn part_2() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input.txt", true);
         println!("Answer = {:?}", answer);
-        assert!(answer == 157);
+        assert!(answer == 1575);
         // 157 too low
     }
 }

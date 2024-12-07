@@ -1,5 +1,7 @@
 const INPUTS_FOLDER: &str = "inputs/day_6";
 
+use core::fmt;
+
 use crate::generic;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -19,6 +21,37 @@ impl From<char> for Tile {
             _ => panic!("bad char input for Tile"),
         }
     }
+}
+
+#[derive(Clone)]
+struct Position {
+    row: usize,
+    col: usize,
+}
+
+impl fmt::Debug for Position {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(r: {}, c: {})", self.row, self.col)
+    }
+}
+
+impl Position {
+    fn walk(&self, steps: usize, direction: Direction) -> Self {
+        let mut new_position = self.clone();
+        match direction {
+            Direction::Up => new_position.row -= steps,
+            Direction::Down => new_position.row += steps,
+            Direction::Left => new_position.col -= steps,
+            Direction::Right => new_position.col += steps,
+        }
+        return new_position
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+struct DetailedTile {
+    tile_type: Tile,
+    approach_direction: Option<Direction>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -69,8 +102,11 @@ impl TileMap {
         return (row, col);
     }
 
-    fn get_distance_to_obstacle(&self, row: usize, col: usize, direction: &Direction) -> (bool, usize) {
-        // Returns the distance to the nearest obstacle and a bool if the guard is still on the map.
+    fn get_path_to_obstacle_from_position(&self, pos: &Position, direction: &Direction) -> Vec<Tile> {
+        self.get_path_to_obtacle(pos.row, pos.col, direction)
+    }
+
+    fn get_path_to_obtacle(&self, row: usize, col: usize, direction: &Direction) -> Vec<Tile> {
         let mut path: Vec<Tile>;
         path = match direction {
             Direction::Up => self.tiles[..row].iter().map(|x| x[col].clone()).collect::<Vec<Tile>>(),
@@ -83,12 +119,50 @@ impl TileMap {
             path.reverse();
         }
 
+        return path;
+    }
+
+    fn get_distance_to_obstacle(&self, row: usize, col: usize, direction: &Direction) -> (bool, usize) {
+        // Returns the distance to the nearest obstacle and a bool if the guard is still on the map.
+        let path: Vec<Tile> = self.get_path_to_obtacle(row, col, direction);
+
         // println!("\tPath is {:?}", path);
 
         if path.contains(&Tile::Obstacle) {
             return (true, path.iter().position(|x| *x == Tile::Obstacle).unwrap());
         } else {
             return (false, path.len());
+        }
+    }
+
+    fn check_obstacle_between(&self, pos1: &Position, pos2: &Position) -> bool {
+        let (start_pos, end_pos, direction) = sort_positions(pos1, pos2);
+        let mut return_bool: bool = false;
+        // println!("Checking obstacle between {:?} and {:?}", start_pos, end_pos);
+        match direction {
+            Direction::Up => panic!("shouldnt have received up!"),
+            Direction::Down => return_bool = self.tiles[start_pos.row..(end_pos.row+1)].iter().map(|x| x[start_pos.col].clone()).collect::<Vec<Tile>>().contains(&Tile::Obstacle),
+            Direction::Left => panic!("shouldnt have received left!"),
+            Direction::Right => return_bool = self.tiles[start_pos.row][start_pos.col..(end_pos.col + 1)].to_vec().contains(&Tile::Obstacle),
+        };
+
+
+        return return_bool;
+    }
+}
+
+fn sort_positions(pos1: &Position, pos2: &Position) -> (Position, Position, Direction) {
+    if pos1.row == pos2.row {
+        if pos1.col <= pos2.col {
+            return (pos1.clone(), pos2.clone(), Direction::Right);
+        } else {
+            return (pos2.clone(), pos1.clone(), Direction::Right);
+        }
+    } else {
+        if pos1.row <= pos2.row {
+            return (pos1.clone(), pos2.clone(), Direction::Down);
+        } else {
+            return (pos2.clone(), pos1.clone(), Direction::Down);
         }
     }
 }
@@ -109,6 +183,9 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
     let mut new_distance: usize = 0;
     let mut tiles_walked: Vec<Vec<Tile>> = vec![vec![Tile::Empty; tile_map.tiles[0].len()]; tile_map.tiles.len()];
 
+    let mut approached_obstructions: Vec<Vec<DetailedTile>> = vec![
+        vec![DetailedTile{tile_type: Tile::Empty, approach_direction: None}; tile_map.tiles[0].len()]; tile_map.tiles.len()];
+
 
     println!("Starting at row: {}, col: {}", row, col);
     while guard_on_map {
@@ -120,24 +197,36 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
                     tiles_walked[r][col] = Tile::Walked;
                 }
                 row -= new_distance;
+                if (guard_on_map) {
+                    approached_obstructions[row - 1][col] = DetailedTile{tile_type: Tile::Obstacle, approach_direction: Some(direction.clone())};
+                }
             }
             Direction::Down => {
                 for r in (row..(row + new_distance + 1)) {
                     tiles_walked[r][col] = Tile::Walked;
                 }
-                row += new_distance
+                row += new_distance;
+                if (guard_on_map) {
+                    approached_obstructions[row + 1][col] = DetailedTile{tile_type: Tile::Obstacle, approach_direction: Some(direction.clone())};
+                }
             },
             Direction::Left => {
                 for c in ((col - new_distance)..col) {
                     tiles_walked[row][c] = Tile::Walked;
                 }
-                col -= new_distance
+                col -= new_distance;
+                if (guard_on_map) {
+                    approached_obstructions[row][col - 1] = DetailedTile{tile_type: Tile::Obstacle, approach_direction: Some(direction.clone())};
+                }
             },
             Direction::Right => {
                 for c in (col..(col + new_distance + 1)) {
                     tiles_walked[row][c] = Tile::Walked;
                 }
-                col += new_distance
+                col += new_distance;
+                if (guard_on_map) {
+                    approached_obstructions[row][col + 1] = DetailedTile{tile_type: Tile::Obstacle, approach_direction: Some(direction.clone())};
+                }
             },
         };
 
@@ -147,26 +236,128 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
         direction = direction.rotate_90_CW();
     }
 
-    let mut count_walked: usize = 0;
-    for r in tiles_walked {
-        for c in r {
-            if c == Tile::Walked {
-                count_walked += 1;
+    if !part_2 {
+        let mut count_walked: usize = 0;
+        for r in tiles_walked {
+            for c in r {
+                if c == Tile::Walked {
+                    count_walked += 1;
+                }
             }
         }
+
+
+        return count_walked;
+    } else {
+        let mut new_obstacle_map: Vec<Vec<Tile>> = vec![vec![Tile::Empty; tile_map.tiles[0].len()]; tile_map.tiles.len()];
+        let mut current_tile: DetailedTile;
+        for row in 0..approached_obstructions.len() {
+            for col in 0..approached_obstructions[0].len() {
+                current_tile = approached_obstructions[row][col].clone();
+                if current_tile.tile_type == Tile::Obstacle {
+                    println!("Working on DetailedTile at row: {}, col: {}, approach_direction: {:?}", row, col, current_tile.approach_direction);
+                    // These are the positions of the Guard just in front of the obstacle.
+                    let top_guard_position: Position;
+                    let mut right_guard_position: Position = Position{row: 0, col: 0};
+                    let mut left_guard_position: Position = Position{row: 0, col: 0};
+                    let down_guard_position1: Position;
+                    let down_guard_position2: Position;
+
+                    let left_guard_position_proposed: Position;
+                    let right_guard_position_proposed: Position;
+                    let down_guard_position_proposed: Position;
+
+                    match current_tile.approach_direction.unwrap() {
+                        Direction::Up => {
+                            let mut right_obstacle: bool = false;
+                            let mut left_obstacle: bool = false;
+                            let mut distance_to_obstacle: usize = 0;
+
+                            top_guard_position = Position{row: row + 1, col: col};
+                            
+                            // Check to the right
+                            let mut path = tile_map.get_path_to_obstacle_from_position(&top_guard_position, &Direction::Right);
+                            println!("\tPath to the right is {:?}", path);
+
+                            if path.contains(&Tile::Obstacle) {
+                                distance_to_obstacle = path.iter().position(|x| *x == Tile::Obstacle).unwrap();
+                                right_guard_position = top_guard_position.walk(distance_to_obstacle, Direction::Right);
+                                right_obstacle = true;
+                                println!("\tRight guard position = {:?}", right_guard_position);
+                                // check if also down
+                                path = tile_map.get_path_to_obstacle_from_position(&right_guard_position, &Direction::Down);
+                                println!("\tPath to down is {:?}", path);
+                                if path.contains(&Tile::Obstacle) {
+                                    distance_to_obstacle = path.iter().position(|x| *x == Tile::Obstacle).unwrap();
+                                    down_guard_position1 = right_guard_position.walk(distance_to_obstacle, Direction::Down);
+                                    println!("\tDown guard position = {:?}", down_guard_position1);
+                                    left_guard_position_proposed = Position{row: down_guard_position1.row, col: top_guard_position.col};
+
+                                    if !tile_map.check_obstacle_between(&left_guard_position_proposed, &top_guard_position) {
+                                        new_obstacle_map[left_guard_position_proposed.row][left_guard_position_proposed.col - 1] = Tile::Obstacle;
+                                        println!("\tAdding new Obstacle at row: {}, col: {}", left_guard_position_proposed.row, left_guard_position_proposed.col - 1);
+                                    }
+                                }
+                            }
+                            
+                            // Check to the left
+                            path = tile_map.get_path_to_obtacle(top_guard_position.row, top_guard_position.col - 1, &Direction::Down);
+                            println!("\tPath to the left is {:?}", path);
+
+                            if path.contains(&Tile::Obstacle) {
+                                distance_to_obstacle = path.iter().position(|x| *x == Tile::Obstacle).unwrap();
+                                left_guard_position = top_guard_position.walk(distance_to_obstacle + 1, Direction::Down);
+                                left_obstacle = true;
+                                println!("\tLeft guard position = {:?}", left_guard_position);
+                                // check if also down
+                                path = tile_map.get_path_to_obtacle(left_guard_position.row + 1, left_guard_position.col, &Direction::Right);
+                                println!("\tPath to down is {:?}", path);
+                                if (path.contains(&Tile::Obstacle)) {
+                                    distance_to_obstacle = path.iter().position(|x| *x == Tile::Obstacle).unwrap();
+                                    down_guard_position2 = left_guard_position.walk(distance_to_obstacle + 1, Direction::Right);
+                                    println!("\tDown guard position = {:?}", down_guard_position2);
+
+                                    right_guard_position_proposed = Position{row: top_guard_position.row, col: down_guard_position2.col};
+
+                                    if !tile_map.check_obstacle_between(&right_guard_position_proposed, &top_guard_position) {
+                                        new_obstacle_map[right_guard_position_proposed.row][right_guard_position_proposed.col + 1] = Tile::Obstacle;
+                                        println!("\tAdding new Obstacle at row: {}, col: {}", right_guard_position_proposed.row, right_guard_position_proposed.col - 1);
+                                    }
+                                }
+                            }
+
+                            if (left_obstacle && right_obstacle) {
+                                down_guard_position_proposed = Position{row: left_guard_position.row, col: right_guard_position.col};
+
+                                if !tile_map.check_obstacle_between(&down_guard_position_proposed, &left_guard_position) &&
+                                        tile_map.check_obstacle_between(&down_guard_position_proposed, &right_guard_position) {
+                                    new_obstacle_map[down_guard_position_proposed.row + 1][down_guard_position_proposed.col] = Tile::Obstacle;
+                                    println!("\tAdding new Obstacle at row: {}, col: {}", down_guard_position_proposed.row + 1, down_guard_position_proposed.row + 1);
+                                }
+                                
+                            }
+                        },
+                        Direction::Down => {},
+                        Direction::Left => {},
+                        Direction::Right => {},
+                    }
+                }
+            }
+        }
+
+        print_map(&new_obstacle_map, Tile::Obstacle);
+
+        return 0;
     }
-
-
-    return count_walked;
 }
 
-fn print_walked_map(walked_map: &Vec<Vec<Tile>>) {
+fn print_map(walked_map: &Vec<Vec<Tile>>, special: Tile) {
     let mut print_char = '.';
     let mut print_row: String;
     for r in walked_map {
         print_row = String::new();
         for c in r {
-            if *c == Tile::Walked {
+            if *c == special {
                 print_char = 'X';
             } else {
                 print_char = '.';

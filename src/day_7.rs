@@ -115,22 +115,26 @@ impl Equation {
     }
 
     fn is_true_recursive(&self, part_2: bool) -> bool {
-        return solve_equation_recursive(self.numbers[0], &self.numbers[1..], self.result, part_2);
+        return solve_equation_recursive(self.numbers[0], &self.numbers[1..], self.result, part_2, 0);
     }
 }
 
-fn solve_equation_recursive(a: i64, numbers: &[i64], r: i64, part_2: bool) -> bool {
+fn solve_equation_recursive(a: i64, numbers: &[i64], r: i64, part_2: bool, depth: usize) -> bool {
     if numbers.len() == 0 {
+        // println!("{} numbers len is 0", (0..depth).map(|_| '\t').collect::<String>());
         return a == r;
     }
 
     if a > r {
+        // println!("{} number greater than r", (0..depth).map(|_| '\t').collect::<String>());
         return a == r;
     }
 
-    return solve_equation_recursive(a + numbers[0], &numbers[1..], r, part_2) ||
-            solve_equation_recursive(a * numbers[0], &numbers[1..], r, part_2) ||
-            (part_2 && solve_equation_recursive(a * 10i64.pow(numbers[0].to_string().len() as u32) + numbers[0], &numbers[1..], r, part_2));
+    let new_depth = depth + 1;
+
+    return solve_equation_recursive(a + numbers[0], &numbers[1..], r, part_2, new_depth) ||
+            solve_equation_recursive(a * numbers[0], &numbers[1..], r, part_2, new_depth) ||
+            (part_2 && solve_equation_recursive(a * 10i64.pow(numbers[0].to_string().len() as u32) + numbers[0], &numbers[1..], r, part_2, new_depth));
 }
 
 fn solve_equation(a: &i64, b: &i64, r: &i64, part_2: bool) -> Vec<i64> {

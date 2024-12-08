@@ -1,6 +1,7 @@
 const INPUTS_FOLDER: &str = "inputs/day_7";
 
-use std::thread::{self, JoinHandle};
+use core::num;
+use std::{collections::HashSet, thread::{self, JoinHandle}};
 
 use crate::generic;
 
@@ -65,7 +66,7 @@ impl Equation {
 
         let mut reversed_numbers = self.numbers.clone();
         reversed_numbers.reverse();
-
+        
         let mut number_combinations: Vec<i64>;
         if part_2 {
 
@@ -78,7 +79,7 @@ impl Equation {
 
 
         let mut possible_answers: HashSet<i64> = solve_equation_backwards(&reversed_numbers[0], &self.result, part_2, None);
-            // println!("\tpossible answers = {:?}", possible_answers);
+        // println!("\tpossible answers = {:?}", possible_answers);
 
         if possible_answers.contains(&0) || possible_answers.contains(&1) {
             return true;
@@ -112,6 +113,24 @@ impl Equation {
         }
         return false;
     }
+
+    fn is_true_recursive(&self, part_2: bool) -> bool {
+        return solve_equation_recursive(self.numbers[0], &self.numbers[1..], self.result, part_2);
+    }
+}
+
+fn solve_equation_recursive(a: i64, numbers: &[i64], r: i64, part_2: bool) -> bool {
+    if numbers.len() == 0 {
+        return a == r;
+    }
+
+    if a > r {
+        return a == r;
+    }
+
+    return solve_equation_recursive(a + numbers[0], &numbers[1..], r, part_2) ||
+            solve_equation_recursive(a * numbers[0], &numbers[1..], r, part_2) ||
+            (part_2 && solve_equation_recursive(a * 10i64.pow(numbers[0].to_string().len() as u32) + numbers[0], &numbers[1..], r, part_2));
 }
 
 fn solve_equation(a: &i64, b: &i64, r: &i64, part_2: bool) -> Vec<i64> {
@@ -172,7 +191,7 @@ fn solve_puzzle(input_filename: String, part_2: bool, threading: bool) -> usize 
     if !threading
     {
         for (i, e) in equations.iter().enumerate() {
-            let equation_passes = e.is_true_backwards(part_2);
+            let equation_passes = e.is_true_recursive(part_2);
             if equation_passes {
                 test_value_sum += e.result;
             }
@@ -188,7 +207,7 @@ fn solve_puzzle(input_filename: String, part_2: bool, threading: bool) -> usize 
                 let mut thread_test_value_sum: i64 = 0;
                 
                 for (j, e) in equation_slice.iter().enumerate() {
-                    let equation_passes = e.is_true_backwards(part_2);
+                    let equation_passes = e.is_true_recursive(part_2);
                     if equation_passes {
                         thread_test_value_sum += e.result;
                     }
@@ -260,6 +279,17 @@ mod tests {
         let combined_numbers = (0..(numbers.len() - 1)).map(|x| numbers[x] * 10i64.pow(numbers[x + 1].ilog10() + 1) + numbers[x+1]).collect::<Vec<i64>>();
     }
 
+    #[test]
+    fn test_logs() {
+        println!("ilog10 of {} = {}", 1i64, 10i64.ilog10());
+        println!("ilog10 of {} = {}", 5i64, 10i64.ilog10());
+        println!("ilog10 of {} = {}", 10i64, 10i64.ilog10());
+        println!("ilog10 of {} = {}", 19i64, 19i64.ilog10());
+        println!("ilog10 of {} = {}", 98i64, 98i64.ilog10());
+        println!("ilog10 of {} = {}", 105i64, 105i64.ilog10());
+        println!("ilog10 of {} = {}", 198i64, 198i64.ilog10());
+        println!("ilog10 of {} = {}", 1025i64, 1025i64.ilog10());
+    }
 
     #[test]
     fn quick_test2() {
@@ -313,7 +343,7 @@ mod tests {
 
     #[test]
     fn part_1() {
-        let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input.txt", false, true);
+        let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input.txt", false, false);
         println!("Answer = {:?}", answer);
         assert!(answer == 5702958180383);
         //5977528110155 too high
@@ -336,8 +366,10 @@ mod tests {
 
     #[test]
     fn part_2() {
-        let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input.txt", true, false);
+        let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input.txt", true, true);
         println!("Answer = {:?}", answer);
+        assert!(answer == 92612386119138);
+
         // answer = 85,082,831,264,513 after 1086.21s. TOO LOOOOOW
         // answer = 85,082,831,264,513 after 1856.91s
     }

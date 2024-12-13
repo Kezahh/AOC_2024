@@ -85,3 +85,23 @@ impl Point {
         return Self{ x: self.x + x, y: self.y + y };
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+pub struct Point64 {
+    pub x: i64,
+    pub y: i64,
+}
+
+impl Point64 {
+    pub fn new(x: i64, y: i64) -> Self {
+        return Self{x: x, y: y};
+    }
+
+    pub fn walk(&self, x: i64, y: i64) -> Self {
+        return Self{ x: self.x + x, y: self.y + y };
+    }
+
+    pub fn walk32(&self, x: i32, y: i32) -> Self {
+        return Self{ x: self.x + x as i64, y: self.y + y as i64 };
+    }
+}

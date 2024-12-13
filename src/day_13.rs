@@ -2,8 +2,6 @@ const INPUTS_FOLDER: &str = "inputs/day_13";
 
 use std::collections::HashMap;
 
-use itertools::rev;
-
 use crate::generic;
 use crate::generic::Point64;
 
@@ -45,64 +43,12 @@ impl Machine {
         // prize_y = a * button[0].y + b * button[1].y
         //
         // a = (prize_x - b * button[1].x) / button[0].x
-        //
-        // prize_y = ((prize_x - b * button[1].x) / button[0].x) * button[0].y + b * button[1].y
-        //
-        // prize_y = ((prize_x * button[0].y) / button[0].x) + b * (button[1].y - ((button[1].x * button[0].y) / button[0].x))
-        // b = (prize_y - ((prize_x * button[0].y) / button[0].x)) / (button[1].y - ((button[1].x * button[0].y) / button[0].x))
-
-        let b: f32 = (self.prize.y as f32 - ((self.prize.x as f32 * self.buttons[0].y as f32) / self.buttons[0].x as f32))
-            / (self.buttons[1].y as f32 - ((self.buttons[1].x as f32 * self.buttons[0].y as f32) / self.buttons[0].x as f32));
-        let a: f32 = (self.prize.x as f32 - (b * self.buttons[1].x as f32)) / self.buttons[0].x as f32;
-
-        println!("\ta = {}, b = {}", a, b);
-        if a.fract() == 0.0 && b.fract() == 0.0  && a <= 100.0 && b <= 100.0 {
-            let cost: usize = (a as usize * self.buttons[0].cost) + (b as usize * self.buttons[1].cost);
-            println!("\tCost is {}", cost);
-            return cost;
-        } else {
-            return 0;
-        }
-    }
-
-    fn get_cost2(&self) -> usize {
-        // prize_x = a * button[0].x + b * button[1].x
-        // prize_y = a * button[0].y + b * button[1].y
-        //
-        // a = (prize_x - b * button[1].x) / button[0].x
-        //
-        // a and b have to be positive integers less than 100;
-
-        let mut min_cost = 0;
-        for b in rev(0..101) {
-            let a1: f32 = (self.prize.x as f32 - b as f32 * self.buttons[1].x as f32) / self.buttons[0].x as f32;
-            let a2: f32 = (self.prize.y as f32 - b as f32 * self.buttons[1].y as f32) / self.buttons[0].y as f32;
-            if a1 == a2 {
-                if a1 >= 0.0 && a1 <= 100.0 && a1.fract() == 0.0 {
-                    println!("\tFound cost at a={}, b={}", a1, b);
-                    let cost = a1 as usize * self.buttons[0].cost + b * self.buttons[1].cost;
-                    if min_cost == 0 || cost < min_cost {
-                        min_cost = cost;
-                    }
-                }
-            }
-        }
-
-        return min_cost;
-    }
-
-    fn get_cost3(&self) -> usize {
-        // prize_x = a * button[0].x + b * button[1].x
-        // prize_y = a * button[0].y + b * button[1].y
-        //
-        // a = (prize_x - b * button[1].x) / button[0].x
         // a = (prize_y - b * button[1].y) / button[0].y
         //
-        // b =     ((button[0].x * prize_y) - (button[0].y * prize_x))
-        //     -----------------------------------------------------------
-        //     ((button[0].x * button[1].y) - (button[0].y * button[1].x))
+        //          ((button[0].x * prize_y) - (button[0].y * prize_x))
+        // b =   -----------------------------------------------------------
+        //       ((button[0].x * button[1].y) - (button[0].y * button[1].x))
         //
-        // a and b have to be positive integers less than 100;
 
         let b: f64 = ((self.buttons[0].x as f64 * self.prize.y as f64) - (self.buttons[0].y as f64 * self.prize.x as f64))
                 / ((self.buttons[0].x as f64 * self.buttons[1].y as f64) - (self.buttons[0].y as f64 * self.buttons[1].x as f64));
@@ -163,32 +109,10 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
     }
 
     let mut sum_cost: usize = 0;
-    let mut recursive_answer: Vec<usize> = Vec::new();
-    let mut maths_answer: Vec<usize> = Vec::new();
-    let mut maths2_answer: Vec<usize> = Vec::new();
-    let mut maths3_answer: Vec<usize> = Vec::new();
     for (i, m) in machines.iter().enumerate() {
         println!("{:?}", m);
-        let mut remember: HashMap<usize, HashMap<usize, usize>> = HashMap::new();
-        // maths_answer.push(m.get_cost());
-        // maths2_answer.push(m.get_cost2());
-        maths3_answer.push(m.get_cost3());
-        // recursive_answer.push(m.press_button(Point::new(0,0), 0, 0, i, &mut remember));
-        // sum_cost += recursive_answer.last().unwrap();
-        sum_cost += maths3_answer.last().unwrap();
+        sum_cost += m.get_cost();
     }
-
-    // for i in 0..maths3_answer.len() {
-    //     if maths3_answer[i] != recursive_answer[i] {
-    //         println!("Difference for {}. Maths3 = {}, recursive = {}", i, maths3_answer[i], recursive_answer[i]);
-    //     }
-    // }
-
-    // let mut remember: HashMap<usize, HashMap<usize, usize>> = HashMap::new();
-    // machines[8].press_button(Point::new(0,0), 0, 0, 3, &mut remember);
-    // machines[8].get_cost();
-    // machines[8].get_cost2();
-
 
     return sum_cost;
 }
@@ -222,7 +146,7 @@ mod tests {
     fn example_2() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input_example_1.txt", true);
         println!("Answer = {:?}", answer);
-        assert!(answer == 30);
+        assert!(answer == 875318608908);
     }
 
     #[test]

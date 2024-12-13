@@ -69,3 +69,19 @@ impl Position {
         return new_position
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+pub struct Point {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl Point {
+    pub fn new(x: i32, y: i32) -> Self {
+        return Self{x: x as i32, y: y as i32};
+    }
+
+    pub fn walk(&self, x: i32, y: i32) -> Self {
+        return Self{ x: self.x + x, y: self.y + y };
+    }
+}

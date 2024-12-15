@@ -39,6 +39,15 @@ impl Direction {
             Self::Right,
         ].iter().copied();
     }
+
+    pub fn reverse(&self) -> Self {
+        match self {
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Hash, Eq, Ord, Copy)]

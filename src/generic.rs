@@ -1,4 +1,4 @@
-use std::{fmt, fs};
+use std::{fmt, fs::{self, File}, io::Write};
 
 pub fn read_in_file(input_filename: &str) -> Vec<String> {
     let error_msg = format!("unable to read file {}", input_filename);
@@ -6,6 +6,12 @@ pub fn read_in_file(input_filename: &str) -> Vec<String> {
     let split = input_data.lines();
     let file_lines: Vec<String> = split.map(str::to_string).collect();
     return file_lines.clone();
+}
+
+pub fn append_to_file(output_filename: String, output_data: String) {
+    let error_msg = format!("unable to write to file {}", output_filename);
+    let mut f = File::options().append(true).open(output_filename).unwrap();
+    writeln!(&mut f, "{}", output_data);
 }
 
 pub fn print_2d_map(input_map: &Vec<Vec<i32>>) {

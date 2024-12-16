@@ -83,6 +83,20 @@ impl Position {
         }
         return new_position
     }
+
+    pub fn direction(&self, next_position: Position) -> Direction {
+        if self.row > next_position.row {
+            return Direction::Up;
+        } else if self.row < next_position.row {
+            return Direction::Down;
+        } else if self.col > next_position.col {
+            return Direction::Left;
+        } else if self.col < next_position.col {
+            return Direction::Right;
+        } else {
+            panic!("Points are the same!");
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]

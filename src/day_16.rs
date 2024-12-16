@@ -1,6 +1,6 @@
 const INPUTS_FOLDER: &str = "inputs/day_16";
 
-use std::collections::{HashMap, HashSet};
+use std::{collections::{HashMap, HashSet}};
 
 use crate::generic::{self, Direction, Position};
 
@@ -122,11 +122,109 @@ impl TileMap {
         return min_cost;
     }
 
-    fn get_neighbours(&self, position: Position) -> Vec<Position> {
-        let mut neighbours: Vec<Position> = Vec::new();
+    fn djikstra(&self, position: Position, direction: Direction, done_set: &mut HashSet<Position>, distances: &mut HashMap<Position, Position>, neighbours_to_do: &mut Vec<(Position, Direction)>) {
+        // println!("Running djikstra on {:?}", position);
+        if done_set.contains(&position) {
+            return;
+        } else {
+            done_set.insert(position);
+        }
+        let current_distance_to_end: usize = self.get_distance_recursive(position, &mut Vec::new(), distances);
+        // println!("current distance to end = {}", current_distance_to_end);
+
+        for (neighbour, neighbour_direction) in self.get_neighbours(position) {
+            // println!("\tCheck neighbour {:?}, d = {:?}, direction = {:?}", neighbour, 0, neighbour_direction);
+            if !distances.contains_key(&neighbour) {
+                // println!("\t\tSet neighbour {:?} with distance {}", neighbour, 0 + current_distance_to_end);
+                distances.insert(neighbour, position);
+            } else {
+                let neighbour_distance: usize;
+                if direction.reverse() == neighbour_direction {
+                    neighbour_distance = 1;
+                } else {
+                    neighbour_distance = 1001;
+                }
+                let neighbour_distance_to_end: usize = self.get_distance_recursive(neighbour, &mut Vec::new(), distances);
+                // println!("\t\tAlready contains neighbour at distance {}", neighbour_distance_to_end);
+                if neighbour_distance_to_end > (current_distance_to_end + neighbour_distance) {
+                    // println!("\t\t\tReplacing neighbour distance to end. with {}", current_distance_to_end + neighbour_distance);
+                    distances.insert(neighbour, position);
+                } else {
+                    // println!("\t\t\tKeeping neighbour distance to end. ignoring {}", current_distance_to_end + neighbour_distance);
+                }
+            }
+
+            if !done_set.contains(&neighbour) {
+                neighbours_to_do.push((neighbour, neighbour_direction));
+            }
+        }
+    }
+
+    fn get_distance_recursive(&self, position: Position, direction_list: &mut Vec<Direction>, distances: &mut HashMap<Position, Position>) -> usize {
+        if position == self.end {
+            return 0;
+        }
+        let next_point: Position = *distances.get(&position).unwrap();
+        let next_direction: Direction = position.direction(next_point);
+        direction_list.push(next_direction);
+        // println!("\tFrom {:?} to {:?}", position, next_point);
+        if next_point == self.end {
+            let mut last_direction: Direction = direction_list.remove(0);
+            let mut distance = 1;
+            for d in direction_list {
+                if *d == last_direction {
+                    distance += 1;
+                } else {
+                    distance += 1001;
+                    last_direction = *d;
+                }
+            }
+            return distance
+        }
+        return self.get_distance_recursive(next_point, direction_list, distances);
+    }
+
+    fn get_ditance_to_end(&self, position: Position, distances: &mut HashMap<Position, Position>, debug: bool) -> usize {
+        if position == self.start {
+            return 0;
+        }
+        if debug {
+            println!("Checking distance to end for {:?}", position);
+            // println!("distances = {:?}", distances);
+        }
+        let mut last_point: Position = position.clone();
+        let mut next_point: Position = *distances.get(&last_point).unwrap();
+        let mut last_direction: Direction = last_point.direction(next_point);
+        let mut total_distance: usize = 1;
+        if next_point == self.start {
+
+        }
+        while next_point != self.start {
+            if debug {
+                println!("\tnext = {:?}, total_distance = {}", next_point, total_distance);
+            }
+            let direction = next_point.direction(last_point);
+            if direction == last_direction {
+                total_distance += 1;
+            } else {
+                total_distance += 1001;
+            }
+            last_direction = direction;
+            last_point = next_point;
+            next_point = *distances.get(&next_point).unwrap();
+        }
+
+        return total_distance;
+    }
+
+    fn get_neighbours(&self, position: Position) -> Vec<(Position, Direction)> {
+        let mut neighbours: Vec<(Position, Direction)> = Vec::new();
         for d in Direction::iter() {
-            match self.get_tile(position.walk(1, d)) {
-                Tile::Empty => neighbours.push(position.walk(1, d)),
+            let neighbour = position.walk(1, d);
+            match self.get_tile(neighbour) {
+                Tile::Empty => {
+                    neighbours.push((position.walk(1, d), d));
+                },
                 _ => (),
             }
         }
@@ -159,15 +257,70 @@ impl TileMap {
             println!("{:?}", row_string);
         }
     }
+
+    fn get_empty_points(&self) -> HashSet<Position> {
+        let mut empty_tiles: HashSet<Position> = HashSet::new();
+        for r in 0..self.row_count() {
+            for c in 0..self.col_count() {
+                let p = Position { row: r, col: c };
+                if self.get_tile(p) == Tile::Empty {
+                    empty_tiles.insert(p);
+                }
+            }
+        }
+        return empty_tiles;
+    }
 }
 
 fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
     let input_lines: Vec<String> = generic::read_in_file(input_filename.as_str());
     let mut tile_map: TileMap = TileMap::new(input_lines);
-    let mut visited: HashMap<Position, Option<usize>> = HashMap::new();
+    let mut distances: HashMap<Position, Position> = HashMap::new();
+    let mut done_set: HashSet<Position> = HashSet::new();
+    let mut neighbours_to_do: Vec<(Position, Direction)> = vec![(tile_map.end, Direction::Right)];
 
     tile_map.print_map();
-    return tile_map.get_path_cost(tile_map.start, Direction::Right, None, &mut visited, 0).unwrap();
+
+    let mut i = 0;
+    while neighbours_to_do.len() > 0 {
+        let (next_neighbour, next_neighbour_direction): (Position, Direction) = neighbours_to_do.remove(0);
+        tile_map.djikstra(next_neighbour, next_neighbour_direction, &mut done_set, &mut distances, &mut neighbours_to_do);
+        i += 1;
+        if i == 20 {
+            // break;
+        }
+    }
+
+    for i in 0..100 {
+        done_set = HashSet::new();
+        neighbours_to_do = vec![(tile_map.start, Direction::Right)];
+        while neighbours_to_do.len() > 0 {
+            let (next_neighbour, next_neighbour_direction): (Position, Direction) = neighbours_to_do.remove(0);
+            tile_map.djikstra(next_neighbour, next_neighbour_direction, &mut done_set, &mut distances, &mut neighbours_to_do);
+        }
+    }
+
+    // println!("getting targets");
+    // let mut target: Position = Position { row: 10, col: 13 };
+    // println!("Distance from {:?} is {}", target, tile_map.get_distance_recursive(target, &mut Vec::new(), &mut distances));
+    // target = Position { row: 7, col: 10 };
+    // println!("Distance from {:?} is {}", target, tile_map.get_distance_recursive(target, &mut Vec::new(), &mut distances));
+    // target = Position { row: 7, col: 11 };
+    // println!("Distance from {:?} is {}", target, tile_map.get_distance_recursive(target, &mut Vec::new(), &mut distances));
+    // target = Position { row: 8, col: 11 };
+    // println!("Distance from {:?} is {}", target, tile_map.get_distance_recursive(target, &mut Vec::new(), &mut distances));
+    // target = Position { row: 9, col: 11 };
+    // println!("Distance from {:?} is {}", target, tile_map.get_distance_recursive(target, &mut Vec::new(), &mut distances));
+    // target = Position { row: 10, col: 11 };
+    // println!("Distance from {:?} is {}", target, tile_map.get_distance_recursive(target, &mut Vec::new(), &mut distances));
+    // target = Position { row: 7, col: 10 };
+    // println!("Distance from {:?} is {}", target, tile_map.get_distance_recursive(target, &mut Vec::new(), &mut distances));
+    // target = Position {row: 6, col: 9};
+    // println!("Distance from {:?} is {}", target, tile_map.get_distance_recursive(target, &mut Vec::new(), &mut distances));
+
+    println!("Getting final distance");
+    return tile_map.get_distance_recursive(tile_map.start, &mut vec![Direction::Right], &mut distances) - 1;
+    //10028
 }
 
 
@@ -198,7 +351,9 @@ mod tests {
     fn part_1() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input.txt", false);
         println!("Answer = {:?}", answer);
-        assert!(answer == 21138);
+        assert!(answer == 143580);
+
+        // 153536 too high
     }
 
     #[test]

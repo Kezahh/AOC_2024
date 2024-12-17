@@ -95,9 +95,9 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> (String, i64, i64, i64)
     } else {
         let program_string: String = program.iter().map(|x| x.to_string()).collect::<Vec<String>>().join(",");
         let mut finished: bool = false;
-        let mut loop_index: usize = 1;
-        let start_offset: i64 = (14 << 22) + (113 << 15) + 3841;
-        println!("Start offset {} bits = {:0b}", start_offset.ilog2() + 1, start_offset);
+        let mut loop_index: usize = 0;
+        let start_offset: i64 = (812262 << 27) + (3 << 24) + (1 << 21) + (2 << 18) + (2 << 15) + (4 << 9) + (2 << 6) + (3 << 3);
+        // println!("Start offset {} bits = {:0b}", start_offset.ilog2() + 1, start_offset);
         println!("Program string is {:?}", program_string);
         // let mut loop_index: usize =  35184372000000;
         let total_loops: usize = 29000000 - 3518400;
@@ -105,7 +105,7 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> (String, i64, i64, i64)
         // Running loop index 35184663000000 last finished
         // let mut loop_index: usize = 0;
         while !finished {
-            let start_a: i64 = (loop_index << 28) as i64 + start_offset;
+            let start_a: i64 = (loop_index << 0) as i64 + start_offset;
             register_a = start_a;
             register_b = register_b_init;
             register_c = register_c_init;
@@ -117,8 +117,8 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> (String, i64, i64, i64)
                 //00011000110010011100110011101110001000111100000001 = 2,4,1,5,7,5,0,3,4,1,1,6,5,5,3,0
             }
 
-            if output_string.starts_with("2,4,1,5,7,5,0,3,4,1,1,6,5,5") {
-                println!("{:050b} = {}", (loop_index << 28) as i64 + start_offset, output_string);
+            if output_string.ends_with("4,1,5,7,5,0,3,4,1,1,6,5,5,3,0") {
+                println!("{:050b} = {}", (loop_index << 0) as i64 + start_offset, output_string);
             }
 
             let mut matches_end: bool = true;
@@ -138,7 +138,7 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> (String, i64, i64, i64)
                 // println!("\toutput_string = {:?}", output_string);
             }
 
-            if loop_index == 1000000000  {
+            if loop_index == 10000000  {
                 break;
             }
             loop_index += 1;
@@ -324,6 +324,8 @@ mod tests {
         println!("Answer = {:?}", answer);
         println!("A = {}, B = {}, C = {}", a, b, c);
         assert!(answer == "4,6,3,5,6,3,5,2,1,0");
+        // 109020013201563 answer
+
 
         // 25992398 is too low
 
@@ -333,7 +335,7 @@ mod tests {
     }
 
     #[test]
-    fn part_2_calc() {
+    fn calc() {
         let loop_index: usize = 25992398;
         let start_offset: usize = (113 << 15) + 3841;
         let register_a: usize = (loop_index << 22) + start_offset;

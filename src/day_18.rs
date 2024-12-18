@@ -12,7 +12,7 @@ enum MemoryType {
     Corrupted,
 }
 
-fn solve_puzzle(input_filename: String, part_2: bool, grid_size: usize, bytes_fallen: usize) -> usize {
+fn solve_puzzle(input_filename: String, part_2: bool, grid_size: usize, bytes_fallen: usize) -> String {
     let input_lines: Vec<String> = generic::read_in_file(input_filename.as_str());
     let corrupt_points: Vec<Position> = input_lines.iter().map(|x| {
         let coordinates: Vec<usize> = x.split(",").map(|x| x.parse::<usize>().unwrap()).collect::<Vec<usize>>();
@@ -27,6 +27,26 @@ fn solve_puzzle(input_filename: String, part_2: bool, grid_size: usize, bytes_fa
     let start_position: Position = Position { row: 0, col: 0 };
     let end_position: Position = Position { row: grid_size - 1, col: grid_size - 1 };
 
+    if !part_2 {
+        let distance_to_end: usize = djikstra(grid_size, start_position, end_position, corrupt_points_hash).unwrap();
+        return distance_to_end.to_string();
+    } else {
+        let mut finished: bool = false;
+        let mut byte_index: usize = 0;
+        while !finished {
+            let corrupt_points_hash_copy: HashSet<Position> = HashSet::from_iter(corrupt_points[0..byte_index].iter().copied());
+            let distance_to_end: Option<usize> = djikstra(grid_size, start_position, end_position, corrupt_points_hash_copy);
+            if distance_to_end.is_none() {
+                finished = true;
+            } else {
+                byte_index += 1
+            };
+        }
+        return format!("{},{}", corrupt_points[byte_index - 1].col, corrupt_points[byte_index - 1].row);
+    }
+}
+
+fn djikstra(grid_size: usize, start_position: Position, end_position: Position, corrupt_points_hash: HashSet<Position>) -> Option<usize> {
     let mut point_distances_to_start: HashMap<Position, usize> = HashMap::new();
     let mut points_to_do: Vec<Position> = vec![start_position];
     let mut done_points: HashSet<Position> = HashSet::new();
@@ -71,9 +91,13 @@ fn solve_puzzle(input_filename: String, part_2: bool, grid_size: usize, bytes_fa
             }
         }
     }
-    // println!("corrupted_points = {:?}", corrupt_points_hash);
-    // println!("point_distances_to_start = {:?}", point_distances_to_start);
 
+    // print_map(grid_size, &point_distances_to_start);
+
+    return point_distances_to_start.get(&end_position).copied();
+}
+
+fn print_map(grid_size: usize, point_distances_to_start: &HashMap<Position, usize>) {
     for r in 0..grid_size {
         for c in 0..grid_size {
             let quick_position: Position = Position { row: r, col: c };
@@ -86,8 +110,6 @@ fn solve_puzzle(input_filename: String, part_2: bool, grid_size: usize, bytes_fa
         }
         print!("\n");
     }
-
-    return *point_distances_to_start.get(&end_position).unwrap();
 }
 
 
@@ -104,27 +126,27 @@ mod tests {
     fn example_1() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input_example_1.txt", false, 7, 12);
         println!("Answer = {:?}", answer);
-        assert!(answer == 22);
+        assert!(answer == "22");
     }
 
     #[test]
     fn part_1() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input.txt", false, 71, 1024);
         println!("Answer = {:?}", answer);
-        assert!(answer == 284);
+        assert!(answer == "284");
     }
 
     #[test]
     fn example_2() {
-        let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input_example_1.txt", true, 6, 12);
+        let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input_example_1.txt", true, 7, 12);
         println!("Answer = {:?}", answer);
-        assert!(answer == 30);
+        assert!(answer == "6,1");
     }
 
     #[test]
     fn part_2() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input.txt", true, 71, 1024);
         println!("Answer = {:?}", answer);
-        assert!(answer == 7185540);
+        assert!(answer == "51,50");
     }
 }

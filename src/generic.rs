@@ -97,6 +97,38 @@ impl Position {
             panic!("Points are the same!");
         }
     }
+
+    pub fn get_neighbours(&self, max_row: usize, max_col: usize) -> Vec<Position> {
+        let mut row: i32 = self.row as i32;
+        let mut col: i32 = self.col as i32;
+        let mut neighbours: Vec<Position> = Vec::new();
+
+        for d in Direction::iter() {
+            match d {
+                Direction::Up => {
+                    if self.row > 0 {
+                        neighbours.push(self.walk(1, d));
+                    }
+                },
+                Direction::Down => {
+                    if self.row < max_row - 1 {
+                        neighbours.push(self.walk(1, d));
+                    }
+                },
+                Direction::Left => {
+                    if self.col > 0 {
+                        neighbours.push(self.walk(1, d));
+                    }
+                },
+                Direction::Right => {
+                    if self.col < max_col - 1 {
+                        neighbours.push(self.walk(1, d));
+                    }
+                },
+            };
+        }
+        return neighbours;
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]

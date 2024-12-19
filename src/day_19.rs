@@ -11,36 +11,43 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
     let designs: Vec<String> = input_lines[2..].iter().map(|x| x.to_string()).collect::<Vec<String>>();
 
     let mut sum_good_designs: usize = 0;
-    let mut memoisation: HashMap<String, bool> = HashMap::new();
+    let mut sum_design_options: usize = 0;
+    let mut memoisation: HashMap<String, usize> = HashMap::new();
 
     for design in designs {
-        if check_string(design, &towels, &mut memoisation) {
+        let design_options: usize = check_string(design, &towels, &mut memoisation);
+        if design_options > 0 {
             sum_good_designs += 1;
+            sum_design_options += design_options;
         }
     }
 
-    return sum_good_designs;
+    if !part_2 {
+        return sum_good_designs;
+    } else {
+        return sum_design_options;
+    }
 }
 
-fn check_string(design: String, towels: &Vec<String>, memoisation: &mut HashMap<String, bool>) -> bool {
+fn check_string(design: String, towels: &Vec<String>, memoisation: &mut HashMap<String, usize>) -> usize {
     if design.len() == 0 {
-        return true;
+        return 1;
     }
 
     if memoisation.contains_key(&design) {
         return *memoisation.get(&design).unwrap();
     }
 
+    let mut total_options: usize = 0;
     for towel in towels { 
-        if design.starts_with(towel) && check_string(design[towel.len()..].to_string(), towels, memoisation) {
-            memoisation.insert(design, true);
-            return true
+        if design.starts_with(towel) {
+            total_options += check_string(design[towel.len()..].to_string(), towels, memoisation);
         }
     }
 
-    memoisation.insert(design, false);
+    memoisation.insert(design, total_options);
 
-    return false;
+    return total_options;
 }
 
 
@@ -71,13 +78,13 @@ mod tests {
     fn example_2() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input_example_1.txt", true);
         println!("Answer = {:?}", answer);
-        assert!(answer == 30);
+        assert!(answer == 16);
     }
 
     #[test]
     fn part_2() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input.txt", true);
         println!("Answer = {:?}", answer);
-        assert!(answer == 7185540);
+        assert!(answer == 621820080273474);
     }
 }

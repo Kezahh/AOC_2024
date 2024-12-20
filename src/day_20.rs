@@ -73,9 +73,24 @@ impl Map {
         return self.tiles[p.row][p.col].clone();
     }
 
+    fn get_distance_to_start(&self, current_point: &Position, point_to_point: &HashMap<Position, Position>) -> Option<usize> {
+        let mut point: Option<&Position> = Some(current_point);
+        let mut distance: usize = 0;
+        while point.is_some() && *point.unwrap() != self.start {
+            point = point_to_point.get(point.unwrap());
+            distance += 1;
+        }
+
+        if point.is_none() {
+            return None
+        } else {
+            return Some(distance);
+        }
+    }
+
     fn djikstra(&self, walls_vec: &Vec<Position>) -> Option<usize> {
         let walls: HashSet<Position> = HashSet::from_iter(walls_vec.clone());
-        let mut point_distances_to_start: HashMap<Position, usize> = HashMap::new();
+        let mut point_to_point: HashMap<Position, Position> = HashMap::new();
         let mut points_to_do: Vec<Position> = vec![self.start];
         let mut done_points: HashSet<Position> = HashSet::new();
     
@@ -92,25 +107,25 @@ impl Map {
     
                 for n in neighbours.iter().copied().filter(|x| !walls.contains(&x)) {
                     if current_point == self.start {
-                        point_distances_to_start.insert(current_point, 0);
-                        point_distances_to_start.insert(n, 1);
+                        point_to_point.insert(current_point, current_point);
+                        point_to_point.insert(n, current_point);
                         if !points_to_do.contains(&n) {
                             points_to_do.push(n);
                         }
                         done_points.remove(&n);
                     } else {
-                        let distance_to_current: usize = *point_distances_to_start.get(&current_point).unwrap();
-                        if point_distances_to_start.contains_key(&n) {
-                            let distance_to_neighbour: usize = *point_distances_to_start.get(&n).unwrap();
+                        let distance_to_current: usize = self.get_distance_to_start(&current_point, &point_to_point).unwrap();
+                        if point_to_point.contains_key(&n) {
+                            let distance_to_neighbour: usize = self.get_distance_to_start(&n, &point_to_point).unwrap();
                             if distance_to_current + 1 < distance_to_neighbour {
-                                point_distances_to_start.insert(n, distance_to_current + 1);
+                                point_to_point.insert(n, current_point);
                                 if !points_to_do.contains(&n) {
                                     points_to_do.push(n);
                                 }
                                 done_points.remove(&n);
                             }
                         } else {
-                            point_distances_to_start.insert(n, distance_to_current + 1);
+                            point_to_point.insert(n, current_point);
                             if !points_to_do.contains(&n) {
                                 points_to_do.push(n);
                             }
@@ -120,7 +135,7 @@ impl Map {
             }
         }
     
-        return point_distances_to_start.get(&self.end).copied();
+        return self.get_distance_to_start(&self.end, &point_to_point);
     }
 }
 
@@ -161,6 +176,7 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
     let mut total_cheats: usize = 0;
     let target_difference: usize = 100;
     for time in cheat_times.keys().sorted() {
+        println!("There are {} cheats that save {} picoseconds", cheat_times.get(time).unwrap(), time);
         if *time <= target_difference {
             total_cheats += cheat_times.get(time).unwrap();
         }

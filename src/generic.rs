@@ -129,6 +129,10 @@ impl Position {
         }
         return neighbours;
     }
+
+    pub fn manhattan_distance(&self, target: &Self) -> usize {
+        return self.row.abs_diff(target.row) + self.col.abs_diff(target.col);
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]

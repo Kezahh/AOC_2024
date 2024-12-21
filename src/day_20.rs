@@ -206,95 +206,62 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
     let base_path_hash: HashSet<Position> = HashSet::from_iter(base_path.clone());
     let mut cheat_times: HashMap<usize, usize> = HashMap::new();
 
+    let max_cheat_distance: usize;
     if !part_2 {
-        let mut walls_to_cheat: Vec<Position> = Vec::new();
-        let mut good_cheats: Vec<Position> = Vec::new();
+        max_cheat_distance = 2;
+    } else {
+        max_cheat_distance = 20;
+    }
 
-        for (i, w) in walls.iter().enumerate() {
-            // println!("Running Wall {:4}/{}", i, walls.len());
-            let neighbours: Vec<Position> = w.get_neighbours(map.row_count(), map.col_count()).iter().copied()
-                .filter(|x| map.get_tile(*x) == Tile::Empty)
-                .filter(|x| base_path_hash.contains(x))
-                .collect::<Vec<Position>>();
-            let mut cheat_neighbours: Vec<Position> = Vec::new();
-            if neighbours.len() == 2 {
-                cheat_neighbours = neighbours.clone();
-            } else if neighbours.len() == 3 {
-                if neighbours[0].row == neighbours[1].row || neighbours[0].col == neighbours[1].col {
-                    cheat_neighbours.push(neighbours[0]);
-                    cheat_neighbours.push(neighbours[1]);
-                } else if neighbours[0].row == neighbours[2].row || neighbours[0].col == neighbours[2].col {
-                    cheat_neighbours.push(neighbours[0]);
-                    cheat_neighbours.push(neighbours[2]);
-                } else {
-                    cheat_neighbours.push(neighbours[1]);
-                    cheat_neighbours.push(neighbours[2]);
-                }
-            } else if neighbours.len() == 4 {
-                panic!("Tooooo many neighbours!");
-            }
-
-            if cheat_neighbours.len() == 2 {
-                let neighbour_1_index: usize = base_path.iter().position(|x| *x == cheat_neighbours[0]).unwrap();
-                let neighbour_2_index: usize = base_path.iter().position(|x| *x == cheat_neighbours[1]).unwrap();
-                let cheat_time: usize = neighbour_1_index.abs_diff(neighbour_2_index) - 2;
-                if cheat_time > 0 {
-                    if !cheat_times.contains_key(&cheat_time) {
-                        cheat_times.insert(cheat_time, 1);
-                    } else {
-                        cheat_times.insert(cheat_time, cheat_times.get(&cheat_time).unwrap() + 1);
-                    }
-                    good_cheats.push(w.clone());
-                }
+    // println!("{:?}", base_path);
+    for (i, p) in base_path.iter().enumerate() {
+        let mut cheat_savings: HashMap<(Position, Position), usize> = HashMap::new();
+        if i % 100 == 0 {
+            println!("Running point {}/{}", i, base_path.len());
+        }
+        let mut cheat_ends: HashMap<Position, usize> = HashMap::new();
+        for end_point in base_path[i..].iter() {
+            let manhattan_distance = p.manhattan_distance(end_point);
+            if manhattan_distance > 1 && manhattan_distance <= max_cheat_distance {
+                cheat_ends.insert(*end_point, manhattan_distance);
             }
         }
-    } else {
-        println!("{:?}", base_path);
-        let mut cheat_savings: HashMap<(Position, Position), usize> = HashMap::new();
-        for (i, p) in base_path.iter().enumerate() {
-            println!("Running point {}/{}", i, base_path.len());
-            let mut cheat_ends: HashMap<Position, usize> = HashMap::new();
-            map.get_cheat_ends(&p, &base_path_hash, 0, &mut cheat_ends, None);
-            // println!("{:?}", cheat_ends);
-            for e in cheat_ends.keys().sorted() {
-                // println!("Cheat end {:?} cheat length {}", e, cheat_ends.get(e).unwrap());
-            }
 
-            let start_index: usize = base_path.iter().position(|x| *x == *p).unwrap();
-            for cheat in cheat_ends.keys().sorted() {
-                let end_index: usize = base_path.iter().position(|x| *x == *cheat).unwrap();
-                let cheat_time_int: i32 = end_index as i32 - start_index as i32 - 2 - *cheat_ends.get(&cheat).unwrap() as i32 + 1;
-                let cheat_time: usize;
-                if cheat_time_int > 0 {
-                    cheat_time = cheat_time_int as usize;
-                    let cheat_path: (Position, Position);
-                    if start_index > end_index {
-                        cheat_path = (*cheat, *p);
-                    } else {
-                        cheat_path = (*p, *cheat);
-                    }
-                    println!("cheat path {:?} saves {}", cheat_path, cheat_time);
-                    println!("\tstart_index = {}", start_index);
-                    println!("\tend_index = {}", end_index);
-                    println!("\tactual time = {}", start_index.abs_diff(end_index));
-                    println!("\tcheat cost = {}", cheat_ends.get(&cheat).unwrap());
-                    if cheat_savings.contains_key(&cheat_path) {
-                        if cheat_time < *cheat_savings.get(&cheat_path).unwrap() {
-                            cheat_savings.insert(cheat_path, cheat_time);
-                        }
-                    } else {
+        // println!("Cheat ends = {:?}", cheat_ends);
+
+        let start_index: usize = base_path.iter().position(|x| *x == *p).unwrap();
+        for cheat in cheat_ends.keys().sorted() {
+            let end_index: usize = base_path.iter().position(|x| *x == *cheat).unwrap();
+            let cheat_time_int: i32 = end_index as i32 - start_index as i32 - *cheat_ends.get(&cheat).unwrap() as i32;
+            let cheat_time: usize;
+            if cheat_time_int > 0 {
+                cheat_time = cheat_time_int as usize;
+                let cheat_path: (Position, Position);
+                if start_index > end_index {
+                    cheat_path = (*cheat, *p);
+                } else {
+                    cheat_path = (*p, *cheat);
+                }
+                // println!("cheat path {:?} saves {}", cheat_path, cheat_time);
+                // println!("\tstart_index = {}", start_index);
+                // println!("\tend_index = {}", end_index);
+                // println!("\tactual time = {}", start_index.abs_diff(end_index));
+                // println!("\tcheat cost = {}", cheat_ends.get(&cheat).unwrap());
+                if cheat_savings.contains_key(&cheat_path) {
+                    if cheat_time < *cheat_savings.get(&cheat_path).unwrap() {
                         cheat_savings.insert(cheat_path, cheat_time);
                     }
+                } else {
+                    cheat_savings.insert(cheat_path, cheat_time);
                 }
             }
-            break;
         }
-        let test_start: Position = Position { row: 3, col: 1 };
-        let test_end: Position = Position { row: 7, col: 3 };
 
-        println!("Cheat from {:?} {:?} has saving of {}", test_start, test_end, cheat_savings.get(&(test_start, test_end)).unwrap());
-
-        // println!("cheat savings = {:?}", cheat_savings);
+        
+        
+        // if i == 5 {
+        //     break;
+        // }
 
         for cheat_time in cheat_savings.values() {
             if !cheat_times.contains_key(&cheat_time) {
@@ -303,6 +270,9 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
                 cheat_times.insert(*cheat_time, cheat_times.get(&cheat_time).unwrap() + 1);
             }
         }
+
+        // println!("Cheat savings = {:?}", cheat_savings);
+        // println!("Cheat times = {:?}", cheat_times);
     }
 
 
@@ -312,8 +282,8 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
         let count_cheats: usize = *cheat_times.get(time).unwrap();
         println!("There are {} cheats that save {} picoseconds", count_cheats, time);
         if *time >= target_difference {
-            // println!("Adding {} cheats from saving {} picoseconds", count_cheats, time);
             total_cheats += count_cheats;
+            // println!("Adding {} cheats from saving {} picoseconds, total = {}", count_cheats, time, total_cheats);
         }
     }
 
@@ -328,6 +298,7 @@ mod tests {
     #[test]
     fn quick_test() {
         // Do a quick test here
+        // let start_point
     }
 
     #[test]
@@ -351,13 +322,17 @@ mod tests {
     fn example_2() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input_example_1.txt", true);
         println!("Answer = {:?}", answer);
-        assert!(answer == 30);
+        assert!(answer == 285);
     }
 
     #[test]
     fn part_2() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input.txt", true);
         println!("Answer = {:?}", answer);
-        assert!(answer == 7185540);
+        assert!(answer == 1012821);
+        // 1102213 too high
+        // 1012821
+        // 1243052
     }
+
 }

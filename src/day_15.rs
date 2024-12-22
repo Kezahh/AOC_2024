@@ -24,19 +24,6 @@ impl From<char> for Tile {
     }
 }
 
-
-impl From<char> for Direction {
-    fn from(value: char) -> Self {
-        match value {
-            '^' => Self::Up,
-            'v' => Self::Down,
-            '>' => Self::Right,
-            '<' => Self::Left,
-            _ => panic!("Bad char given for direction!"),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 struct TileMap {
     tiles: Vec<Vec<Tile>>,

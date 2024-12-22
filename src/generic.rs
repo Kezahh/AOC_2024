@@ -30,6 +30,18 @@ pub enum Direction {
     Right,
 }
 
+impl From<char> for Direction {
+    fn from(value: char) -> Self {
+        match value {
+            '^' => Self::Up,
+            'v' => Self::Down,
+            '>' => Self::Right,
+            '<' => Self::Left,
+            _ => panic!("Bad char input for Direction::from"),
+        }
+    }
+}
+
 impl Direction {
     pub fn iter() -> impl Iterator<Item = Direction> {
         return [
@@ -132,6 +144,10 @@ impl Position {
 
     pub fn manhattan_distance(&self, target: &Self) -> usize {
         return self.row.abs_diff(target.row) + self.col.abs_diff(target.col);
+    }
+
+    pub fn delta(&self, target: &Self) -> (i32, i32) {
+        return (self.row as i32 - target.row as i32, self.col as i32 - target.col as i32);
     }
 }
 

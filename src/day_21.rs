@@ -187,10 +187,11 @@ fn get_shortest_code_length(direction_pad: &DirectionPad, depth: usize, position
             let target_position: &Position = direction_pad.buttons.get(&c).unwrap();
             let mut paths: Vec<String> = get_all_paths(current_position, target_position, excluded_positions);
             paths.iter_mut().for_each(|x| x.push('A'));
-            let mut path_distance: usize = 1000000;
+            let mut path_distance: usize = 1000000000000;
             let mut shortest_path: String = String::new();
             for p in paths.iter() {
                 let path_min_distance: usize = get_shortest_code_length(direction_pad, depth - 1, &Position { row: 0, col: 2 }, &p, excluded_positions, Some(current_code_lengths));
+                current_code_lengths.insert((depth - 1, p.clone()), path_min_distance);
                 if path_min_distance < path_distance {
                     path_distance = path_min_distance;
                     shortest_path = p.clone();
@@ -203,7 +204,7 @@ fn get_shortest_code_length(direction_pad: &DirectionPad, depth: usize, position
         }
 
         // println!("{}Shortest path for code {} is {}", "\t".repeat(3 - depth), code, target_path);
-
+        current_code_lengths.insert((depth, code.clone()), total_min_distance);
         return total_min_distance;
     }
 }
@@ -228,6 +229,12 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
 
     let mut start_position: Position = Position { row: 3, col: 2 };
     let mut code_distances: HashMap<String, usize> = HashMap::new();
+    let robot_dirpads: usize;
+    if !part_2 {
+        robot_dirpads = 2;
+    } else {
+        robot_dirpads = 25;
+    }
     
     for c in codes {
         println!("{:?}", c);
@@ -251,10 +258,10 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
 
         
         let directional_excluded_positions: HashSet<Position> = HashSet::from_iter(vec![Position{row: 0, col: 0}]);
-        let mut current_min: usize = 1000000;
+        let mut current_min: usize = 1000000000000;
         
         for p in paths.iter() {
-            let new_min_path: usize = get_shortest_code_length(&dirpad, 2, &Position { row: 0, col: 2}, p, &directional_excluded_positions, None);
+            let new_min_path: usize = get_shortest_code_length(&dirpad, robot_dirpads, &Position { row: 0, col: 2}, p, &directional_excluded_positions, None);
             if new_min_path < current_min {
                 current_min = new_min_path;
             }
@@ -345,6 +352,6 @@ mod tests {
     fn part_2() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input.txt", true);
         println!("Answer = {:?}", answer);
-        assert!(answer == 7185540);
+        assert!(answer == 118392478819140);
     }
 }

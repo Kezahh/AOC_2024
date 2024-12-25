@@ -104,6 +104,130 @@ fn verify_path(position: &Position, path: String, excluded_positions: &HashSet<P
     return true;
 }
 
+struct CodeCombinations {
+    codes: Vec<Vec<String>>,
+    max_codes: usize,
+    code_indices: Vec<usize>,
+    index: usize,
+}
+
+impl CodeCombinations {
+    fn new(codes: &Vec<Vec<String>>) -> Self {
+        let max_codes: usize = codes.iter().map(|x| x.len()).product();
+        let code_indices: Vec<usize> = (0..codes.len()).map(|x| {
+            if x == 0 {
+                return 1;
+            } else {
+                return codes[..x].iter().map(|a| a.len()).product();
+            }
+        }).collect::<Vec<usize>>();
+
+        return Self { codes: codes.clone(), max_codes: max_codes, code_indices: code_indices, index: 0 }
+    }
+}
+
+impl Iterator for CodeCombinations {
+    type Item = String;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index == self.max_codes {
+            return None;
+        } else {
+            let mut new_code: String = String::new();
+            for (i, x) in self.codes.iter().enumerate() {
+                new_code.push_str(x[(self.index/self.code_indices[i]) % x.len()].as_str());
+            }
+            self.index += 1;
+            return Some(new_code);
+        }
+    }
+}
+
+fn code_combinations(codes: &Vec<Vec<String>>, ) {
+    let codes: Vec<Vec<&str>> = vec![vec!["aa", "bb", "cc"], vec!["dd"], vec!["ee", "ff"]];
+    let max_codes: usize = codes.iter().map(|x| x.len()).product();
+    let code_index: Vec<usize> = (0..codes.len()).map(|x| {
+        if x == 0 {
+            return 1;
+        } else {
+            return codes[..x].iter().map(|a| a.len()).product();
+        }
+    }).collect::<Vec<usize>>();
+    for i in 0..max_codes {
+        let code: String = codes.iter().enumerate().map(|(x_index, x)| x[(i/code_index[x_index]) % x.len()]).collect::<String>();
+        println!("{}", code);
+    }
+}
+
+fn get_shortest_code_length(direction_pad: &DirectionPad, depth: usize, position: &Position, code: &String, excluded_positions: &HashSet<Position>, code_lengths: Option<&mut HashMap<(usize, String), usize>>) -> usize {
+    println!("{}Depth = {}: Running get_shortest_code_length on {}", "\t".repeat(4 - depth), depth, code);
+    if depth == 0 {
+        if code_lengths.is_some() {
+            code_lengths.unwrap().insert((depth, code.clone()), code.len());
+        }
+        return code.len();
+    } else {
+        let current_code_lengths: &mut HashMap<(usize, String), usize>;
+        let mut empty_hashmap: HashMap<(usize, String), usize> = HashMap::new();
+        if code_lengths.is_some() {
+            current_code_lengths = code_lengths.unwrap();
+        } else {
+            current_code_lengths = &mut empty_hashmap;
+        }
+
+        if current_code_lengths.contains_key(&(depth, code.clone())) {
+            return *current_code_lengths.get(&(depth, code.clone())).unwrap();
+        }
+
+        let mut current_position: &Position = position;
+        let mut all_code_paths: Vec<Vec<String>> = Vec::new();
+        for c in code.chars() {
+            let target_position: &Position = direction_pad.buttons.get(&c).unwrap();
+            let mut paths: Vec<String> = get_all_paths(current_position, target_position, excluded_positions);
+            paths.iter_mut().for_each(|x| x.push('A'));
+            all_code_paths.push(paths);
+            current_position = target_position;
+        }
+
+        let max_codes: usize = all_code_paths.iter().map(|x| x.len()).product();
+        let mut all_possible_codes: Vec<String> = vec![String::new()];
+        for possible_codes_to_next_char in all_code_paths {
+            let mut current_possible_codes = Vec::new();
+            for code in possible_codes_to_next_char {
+                for code_inside in all_possible_codes.iter() {
+                    let mut new_code: String = code_inside.clone();
+                    new_code.push_str(code.as_str());
+                    current_possible_codes.push(new_code)
+                }
+            }
+            all_possible_codes = current_possible_codes;
+        }
+
+        println!("{}There are {} possible codes", "\t".repeat(4 - depth), all_possible_codes.len());
+        for p in all_possible_codes.iter() {
+            println!("{}{}", "\t".repeat(4 - depth), p);
+        }
+
+        return 0;
+        let mut shortest_code: String = all_possible_codes[0].clone();
+        let mut min_length: usize = get_shortest_code_length(direction_pad, depth - 1, position, &shortest_code, excluded_positions, Some(current_code_lengths));
+        current_code_lengths.insert((depth - 1, shortest_code), min_length);
+
+        if all_possible_codes.len() != 0 {
+            for p in all_possible_codes[1..].iter() {
+                let new_min_length = get_shortest_code_length(direction_pad, depth - 1, position, p, excluded_positions, Some(current_code_lengths));
+                current_code_lengths.insert((depth - 1, p.clone()), new_min_length);
+                if new_min_length < min_length {
+                    min_length = new_min_length;
+                    shortest_code = p.clone();
+                }
+            }
+        }
+
+        current_code_lengths.insert((depth, code.clone()), min_length);
+        return min_length;
+    }
+}
+
 
 fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
     let input_lines: Vec<String> = generic::read_in_file(input_filename.as_str());
@@ -144,6 +268,9 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
         }
 
         println!("Code = {:?}, Paths = {:?}", c.iter().collect::<String>(), paths);
+
+        let directional_excluded_positions: HashSet<Position> = HashSet::from_iter(vec![Position{row: 0, col: 0}]);
+        get_shortest_code_length(&dirpad, 3, &Position { row: 0, col: 2}, &paths[0], &directional_excluded_positions, None);
     }
 
 
@@ -166,6 +293,33 @@ mod tests {
             for p in path.chars().permutations(i) {
                 println!("\t{:?}", p)
             }
+        }
+    }
+
+    #[test]
+    fn quick_test2() {
+        // Do a quick test here
+        let codes: Vec<Vec<&str>> = vec![vec!["aa", "bb", "cc"], vec!["dd"], vec!["ee", "ff"]];
+        let max_codes: usize = codes.iter().map(|x| x.len()).product();
+        let code_index: Vec<usize> = (0..codes.len()).map(|x| {
+            if x == 0 {
+                return 1;
+            } else {
+                return codes[..x].iter().map(|a| a.len()).product();
+            }
+        }).collect::<Vec<usize>>();
+        for i in 0..max_codes {
+            let code: String = codes.iter().enumerate().map(|(x_index, x)| x[(i/code_index[x_index]) % x.len()]).collect::<String>();
+            println!("{}", code);
+        }
+    }
+
+    #[test]
+    fn quick_test3() {
+        // Do a quick test here
+        let codes: Vec<Vec<String>> = vec![vec!["aa".to_string(), "bb".to_string(), "cc".to_string()], vec!["dd".to_string()], vec!["ee".to_string(), "ff".to_string()]];
+        for x in CodeCombinations::new(&codes) {
+            println!("x = {:?}", x);
         }
     }
 

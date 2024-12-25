@@ -115,12 +115,37 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
     let dirpad: DirectionPad = DirectionPad::new();
     println!("All done");
 
-    for (k,v) in numpad.points_map.into_iter() {
+    for (k,v) in numpad.points_map.clone().into_iter() {
         println!("Point {:?}", k);
         for (xk, xv) in v.into_iter() {
             println!("\tPoint {:?}: {:?}", xk, xv);
         }
     }
+
+    let mut start_position: Position = Position { row: 3, col: 2 };
+    for c in codes {
+        println!("{:?}", c);
+        let mut paths: Vec<String> = Vec::new();
+        let mut end_position: Position = *numpad.buttons.get(&c[0]).unwrap();
+        paths.append(&mut numpad.points_map.get(&start_position).unwrap().get(&end_position).unwrap().clone());
+        paths.iter_mut().for_each(|x| x.push('A'));
+        start_position = end_position;
+        for x in c[1..].iter() {
+            end_position = *numpad.buttons.get(x).unwrap();
+            let mut bigger_paths: Vec<String> = Vec::new();
+            for p1 in paths {
+                for p2 in numpad.points_map.get(&start_position).unwrap().get(&end_position).unwrap().clone() {
+                    bigger_paths.push(p1.to_owned() + p2.as_str());
+                }
+            }
+            paths = bigger_paths.clone();
+            paths.iter_mut().for_each(|x| x.push('A'));
+            start_position = end_position;
+        }
+
+        println!("Code = {:?}, Paths = {:?}", c.iter().collect::<String>(), paths);
+    }
+
 
     return 0;
 }

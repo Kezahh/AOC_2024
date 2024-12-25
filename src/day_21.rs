@@ -159,7 +159,8 @@ fn code_combinations(codes: &Vec<Vec<String>>, ) {
 }
 
 fn get_shortest_code_length(direction_pad: &DirectionPad, depth: usize, position: &Position, code: &String, excluded_positions: &HashSet<Position>, code_lengths: Option<&mut HashMap<(usize, String), usize>>) -> usize {
-    println!("{}Depth = {}: Running get_shortest_code_length on {}", "\t".repeat(4 - depth), depth, code);
+    // println!("{}Depth = {}: Running get_shortest_code_length on {}", "\t".repeat(4 - depth), depth, code);
+
     if depth == 0 {
         if code_lengths.is_some() {
             code_lengths.unwrap().insert((depth, code.clone()), code.len());
@@ -180,51 +181,30 @@ fn get_shortest_code_length(direction_pad: &DirectionPad, depth: usize, position
 
         let mut current_position: &Position = position;
         let mut all_code_paths: Vec<Vec<String>> = Vec::new();
+        let mut total_min_distance: usize = 0;
+        let mut target_path: String = String::new();
         for c in code.chars() {
             let target_position: &Position = direction_pad.buttons.get(&c).unwrap();
             let mut paths: Vec<String> = get_all_paths(current_position, target_position, excluded_positions);
             paths.iter_mut().for_each(|x| x.push('A'));
+            let mut path_distance: usize = 1000000;
+            let mut shortest_path: String = String::new();
+            for p in paths.iter() {
+                let path_min_distance: usize = get_shortest_code_length(direction_pad, depth - 1, &Position { row: 0, col: 2 }, &p, excluded_positions, Some(current_code_lengths));
+                if path_min_distance < path_distance {
+                    path_distance = path_min_distance;
+                    shortest_path = p.clone();
+                }
+            }
+            total_min_distance += path_distance;
+            target_path.push_str(&shortest_path.as_str());
             all_code_paths.push(paths);
             current_position = target_position;
         }
 
-        let max_codes: usize = all_code_paths.iter().map(|x| x.len()).product();
-        let mut all_possible_codes: Vec<String> = vec![String::new()];
-        for possible_codes_to_next_char in all_code_paths {
-            let mut current_possible_codes = Vec::new();
-            for code in possible_codes_to_next_char {
-                for code_inside in all_possible_codes.iter() {
-                    let mut new_code: String = code_inside.clone();
-                    new_code.push_str(code.as_str());
-                    current_possible_codes.push(new_code)
-                }
-            }
-            all_possible_codes = current_possible_codes;
-        }
+        // println!("{}Shortest path for code {} is {}", "\t".repeat(3 - depth), code, target_path);
 
-        println!("{}There are {} possible codes", "\t".repeat(4 - depth), all_possible_codes.len());
-        for p in all_possible_codes.iter() {
-            println!("{}{}", "\t".repeat(4 - depth), p);
-        }
-
-        return 0;
-        let mut shortest_code: String = all_possible_codes[0].clone();
-        let mut min_length: usize = get_shortest_code_length(direction_pad, depth - 1, position, &shortest_code, excluded_positions, Some(current_code_lengths));
-        current_code_lengths.insert((depth - 1, shortest_code), min_length);
-
-        if all_possible_codes.len() != 0 {
-            for p in all_possible_codes[1..].iter() {
-                let new_min_length = get_shortest_code_length(direction_pad, depth - 1, position, p, excluded_positions, Some(current_code_lengths));
-                current_code_lengths.insert((depth - 1, p.clone()), new_min_length);
-                if new_min_length < min_length {
-                    min_length = new_min_length;
-                    shortest_code = p.clone();
-                }
-            }
-        }
-
-        current_code_lengths.insert((depth, code.clone()), min_length);
-        return min_length;
+        return total_min_distance;
     }
 }
 
@@ -247,6 +227,8 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
     }
 
     let mut start_position: Position = Position { row: 3, col: 2 };
+    let mut code_distances: HashMap<String, usize> = HashMap::new();
+    
     for c in codes {
         println!("{:?}", c);
         let mut paths: Vec<String> = Vec::new();
@@ -267,14 +249,29 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
             start_position = end_position;
         }
 
-        println!("Code = {:?}, Paths = {:?}", c.iter().collect::<String>(), paths);
-
+        
         let directional_excluded_positions: HashSet<Position> = HashSet::from_iter(vec![Position{row: 0, col: 0}]);
-        get_shortest_code_length(&dirpad, 3, &Position { row: 0, col: 2}, &paths[0], &directional_excluded_positions, None);
+        let mut current_min: usize = 1000000;
+        
+        for p in paths.iter() {
+            let new_min_path: usize = get_shortest_code_length(&dirpad, 2, &Position { row: 0, col: 2}, p, &directional_excluded_positions, None);
+            if new_min_path < current_min {
+                current_min = new_min_path;
+            }
+        }
+        println!("Code = {:?}, min = {}, Paths = {:?}", c.iter().collect::<String>(), current_min, paths);
+        code_distances.insert(c.iter().collect::<String>(), current_min);
     }
 
+    let mut total_complexity: usize = 0;
+    for (code, distance) in code_distances {
+        let code_numbers: usize = code.replace("A", "").parse::<usize>().unwrap();
+        let complexity: usize = code_numbers * distance;
+        println!("Code {} has numeric {:3} x distance {}", code, code_numbers, distance);
+        total_complexity += complexity;
+    }
 
-    return 0;
+    return total_complexity;
 }
 
 
@@ -327,14 +324,14 @@ mod tests {
     fn example_1() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input_example_1.txt", false);
         println!("Answer = {:?}", answer);
-        assert!(answer == 13);
+        assert!(answer == 126384);
     }
 
     #[test]
     fn part_1() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input.txt", false);
         println!("Answer = {:?}", answer);
-        assert!(answer == 21138);
+        assert!(answer == 94426);
     }
 
     #[test]

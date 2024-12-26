@@ -39,9 +39,9 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
             if !map_per_secret.contains_key(difference_vec) {
                 map_per_secret.insert(difference_vec.clone(), bananas_bought);
             } else {
-                if bananas_bought > *map_per_secret.get(difference_vec).unwrap() {
-                    map_per_secret.insert(difference_vec.clone(), bananas_bought);
-                }
+                // if bananas_bought > *map_per_secret.get(difference_vec).unwrap() {
+                //     map_per_secret.insert(difference_vec.clone(), bananas_bought);
+                // }
             }
         }
 
@@ -61,6 +61,10 @@ fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
             let banana_sum = bananas.iter().sum::<usize>();
             if banana_sum > max_bananas {
                 max_bananas = banana_sum;
+            }
+
+            if bananas.len() > 2 {
+                println!("Difference {:?} has {:?}", difference_vec, bananas );
             }
         }
 
@@ -103,7 +107,7 @@ mod tests {
     fn part_2() {
         let answer = solve_puzzle(INPUTS_FOLDER.to_owned() + "/input.txt", true);
         println!("Answer = {:?}", answer);
-        assert!(answer == 1672);
+        assert!(answer == 1630);
 
         // 1672 too high
     }

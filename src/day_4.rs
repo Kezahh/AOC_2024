@@ -106,7 +106,6 @@ impl LetterMap {
     }
 
     fn is_cross(&self, row: usize, col: usize) -> bool {
-        let mut temp_sum: usize = 0;
         if self.check_cross_exceeds(row, col) {
             return false;
         } else {
@@ -144,22 +143,22 @@ impl LetterMap {
     fn check_direction_exceeds(&self, direction: Direction, row: usize, col: usize) -> bool {
         match direction {
             Direction::Up => {
-                if (row < XMAS_LENGTH - 1) {
+                if row < XMAS_LENGTH - 1 {
                     return true;
                 }
             }
             Direction::Down => {
-                if (row + XMAS_LENGTH > self.row_count()) {
+                if row + XMAS_LENGTH > self.row_count() {
                     return true;
                 }
             }
             Direction::Left => {
-                if (col < XMAS_LENGTH - 1) {
+                if col < XMAS_LENGTH - 1 {
                     return true;
                 }
             }
             Direction::Right => {
-                if (col + XMAS_LENGTH > self.col_count()) {
+                if col + XMAS_LENGTH > self.col_count() {
                     return true;
                 }
             }
@@ -242,9 +241,6 @@ impl LetterMap {
 fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
     let input_lines: Vec<String> = generic::read_in_file(input_filename.as_str());
     let letter_map: LetterMap = LetterMap::from(input_lines);
-
-    let mut row: usize;
-    let mut col: usize;
     let mut xmas_sum: usize = 0;
 
     for row in 0..letter_map.row_count() {

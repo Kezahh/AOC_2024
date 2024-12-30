@@ -97,6 +97,7 @@ impl Position {
     }
 
     pub fn direction(&self, next_position: Position) -> Direction {
+        // returns direction from self to next position.
         if self.row > next_position.row {
             return Direction::Up;
         } else if self.row < next_position.row {

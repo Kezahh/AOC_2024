@@ -1,8 +1,6 @@
 const INPUTS_FOLDER: &str = "inputs/day_16";
 
-use std::{collections::{HashMap, HashSet}};
-
-use itertools::all;
+use std::collections::{HashMap, HashSet};
 
 use crate::generic::{self, Direction, Position};
 
@@ -246,6 +244,8 @@ impl TileMap {
             let direction = next_point.direction(last_point);
             if direction == last_direction {
                 total_distance += 1;
+            } else if direction == last_direction.reverse() {
+                panic!("Going backwards");
             } else {
                 total_distance += 1001;
             }
@@ -312,110 +312,161 @@ impl TileMap {
     }
 }
 
-fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
-    let input_lines: Vec<String> = generic::read_in_file(input_filename.as_str());
-    let mut tile_map: TileMap = TileMap::new(input_lines);
-    let mut distances: HashMap<Position, Position> = HashMap::new();
-    let mut done_set: HashSet<Position> = HashSet::new();
-    let mut neighbours_to_do: Vec<(Position, Direction)> = vec![(tile_map.end, Direction::Right)];
-
-    tile_map.print_map();
-    // tile_map.set_tile(Position { row: 138, col: 7 }, Tile::Wall);
-
-    while neighbours_to_do.len() > 0 {
-        let (next_neighbour, next_neighbour_direction): (Position, Direction) = neighbours_to_do.remove(0);
-        tile_map.djikstra(next_neighbour, next_neighbour_direction, &mut done_set, &mut distances, &mut neighbours_to_do);
+fn get_shortest_paths(points: &HashSet<Position>, max_row: usize, max_col: usize, start_position: &Position, start_direction: &Direction, end_position: &Position, my_score: usize, tail: &HashSet<&Position>, found_shortest: &mut Option<usize>, memoized: &mut HashMap<(Position, Direction, usize), Option<Vec<(usize, Vec<Position>)>>>, steps: usize) -> Option<Vec<(usize, Vec<Position>)>> {
+    // println!("{:7} Doing {:?} with score {}", steps, start_position, my_score);
+    if memoized.contains_key(&(*start_position, *start_direction, my_score)) {
+        return memoized.get(&(*start_position, *start_direction, my_score)).unwrap().clone();
     }
-
-    for i in 0..2 {
-        done_set = HashSet::new();
-        neighbours_to_do = vec![(tile_map.start, Direction::Right)];
-        while neighbours_to_do.len() > 0 {
-            let (next_neighbour, next_neighbour_direction): (Position, Direction) = neighbours_to_do.remove(0);
-            tile_map.djikstra(next_neighbour, next_neighbour_direction, &mut done_set, &mut distances, &mut neighbours_to_do);
+    
+    if found_shortest.is_some() {
+        if my_score > found_shortest.unwrap() {
+            return None;
         }
     }
 
-    let best_path_length: usize = tile_map.get_distance_recursive(tile_map.start, &mut vec![Direction::Right], &mut distances).unwrap() - 1;
+    if start_position == end_position {
+        if found_shortest.is_none() {
+            *found_shortest = Some(my_score);
+        } else if my_score < found_shortest.unwrap() {
+            *found_shortest = Some(my_score);
+        }
+        let return_option: Option<Vec<(usize, Vec<Position>)>> = Some(vec![(my_score, vec![end_position.clone()])]);
+        // memoized.insert((*start_position, *start_direction), return_option.clone());
+        return return_option;
+    }
 
-    // with blockages
-    let all_path_points: Vec<Position> = tile_map.get_path(tile_map.start, &distances);
-    let all_path_points_hash: HashSet<Position> = HashSet::from_iter(all_path_points.clone());
-    let intersections: Vec<&Position> = all_path_points.iter().filter(|x| tile_map.get_neighbours(**x).len() > 2).collect::<Vec<&Position>>();
+    let mut my_tail: HashSet<&Position> = tail.clone();
+    my_tail.insert(start_position);
 
-    let mut unique_points: HashSet<Position> = HashSet::from_iter(all_path_points.clone());
 
-    let mut j: usize = 0;
-    for (k, intersection) in intersections.iter().enumerate() {
-        let intersection_index: usize = all_path_points.iter().position(|x| x == *intersection).unwrap();
-        let neighbours: Vec<(Position, Direction)> = tile_map.get_neighbours(**intersection);
-        // let mut block_sites: Vec<Position> = neighbours.clone();
-        let mut block_sites: Vec<Position> = vec![all_path_points[intersection_index + 1]];
-        // println!("Block sites for {:?} are {:?}", intersection, block_sites);
-        let mut new_tile_map: TileMap = tile_map.clone();
-        let mut block_index: usize = 0;
-        while block_index < block_sites.len() {
-            let mut b: Position = block_sites[block_index];
-            new_tile_map.set_tile(b, Tile::Wall);
+    let neighbours: Vec<Position> = start_position.get_neighbours(max_row, max_col).into_iter().filter(|x| points.contains(&x) && !my_tail.contains(x)).collect::<Vec<Position>>();
+    let mut shortest_paths: Vec<(usize, Vec<Position>)> = Vec::new();
+    for n in neighbours {
+        let neighbour_direction = start_position.direction(n);
+        let mut neighbour_score: usize = my_score.clone();
+        if neighbour_direction == *start_direction {
+            neighbour_score += 1;
+        } else {
+            neighbour_score += 1001
+        }
+        let neighbour_path_option: Option<Vec<(usize, Vec<Position>)>> = get_shortest_paths(points, max_row, max_col, &n, &neighbour_direction, end_position, neighbour_score, &my_tail, found_shortest, memoized, steps + 1);
+        if neighbour_path_option.is_some() {
+            for path in neighbour_path_option.unwrap() {
+                let mut path_from_point: Vec<Position> = vec![start_position.clone()];
+                path_from_point.append(&mut path.1.clone());
+                shortest_paths.push((path.0, path_from_point));
+            }
+        }        
+    }
 
-            // tile_map.print_map();
-            distances = HashMap::new();
-            done_set = HashSet::new();
+    
+    if shortest_paths.len() > 0 {
+        let shortest_path: usize = shortest_paths.iter().map(|x| x.0).min().unwrap();
+        let return_option: Option<Vec<(usize, Vec<Position>)>> = Some(shortest_paths.iter().cloned().filter(|x| x.0 <= shortest_path).collect::<Vec<(usize, Vec<Position>)>>());
+        memoized.insert((*start_position, *start_direction, shortest_path), return_option.clone());
+        return return_option;
+    } else {
+        memoized.insert((*start_position, *start_direction, my_score), None);
+        return None;
+    }
+}
 
-            neighbours_to_do = vec![(new_tile_map.end, Direction::Right)];
-            while neighbours_to_do.len() > 0 {
-                let (next_neighbour, next_neighbour_direction): (Position, Direction) = neighbours_to_do.remove(0);
-                new_tile_map.djikstra(next_neighbour, next_neighbour_direction, &mut done_set, &mut distances, &mut neighbours_to_do);
+fn get_path_score(path: &Vec<Position>, start_direction: &Direction) -> usize {
+    let mut current_direction: Direction = start_direction.clone();
+    let mut current_position: &Position = &path[0];
+    let mut score: usize = 0;
+    for p in path[1..].iter() {
+        let next_direction = current_position.direction(*p);
+        if next_direction == current_direction {
+            score += 1;
+        } else {
+            score += 1001;
+        }
+        current_position = p;
+        current_direction = next_direction;
+    }
+
+    return score;
+}
+
+fn djikstra_lowest_score(points: &HashSet<Position>, start_position: &Position, start_direction: &Direction) -> HashMap<(Position, Direction), usize> {
+    let mut points_to_do: Vec<(Position, Direction)> = vec![(start_position.clone(), start_direction.clone())];
+    let mut scores: HashMap<(Position, Direction), usize> = HashMap::new();
+    let max_row: usize = points.iter().map(|x| x.row).max().unwrap() + 1;
+    let max_col: usize = points.iter().map(|x| x.col).max().unwrap() + 1;
+    scores.insert((*start_position, *start_direction), 0);
+
+    while points_to_do.len() > 0 {
+        let (target_point, target_direction): (Position, Direction) = points_to_do.remove(0);
+        let target_point_score: usize = *scores.get(&(target_point, target_direction)).unwrap();
+        let neighbours: Vec<Position> = target_point.get_neighbours(max_row, max_col).into_iter().filter(|x| points.contains(&x)).collect::<Vec<Position>>();
+        // println!("Running {:?} with neighbours {:?}", target_point, neighbours);
+        for n in neighbours {
+            let neighbour_direction: Direction = target_point.direction(n);
+            let mut neighbour_score: usize = target_point_score;
+            if neighbour_direction == target_direction {
+                neighbour_score += 1;
+            } else {
+                neighbour_score += 1001;
             }
 
-            for i in 0..20 {
-                done_set = HashSet::new();
-                neighbours_to_do = vec![(new_tile_map.start, Direction::Right)];
-                while neighbours_to_do.len() > 0 {
-                    let (next_neighbour, next_neighbour_direction): (Position, Direction) = neighbours_to_do.remove(0);
-                    new_tile_map.djikstra(next_neighbour, next_neighbour_direction, &mut done_set, &mut distances, &mut neighbours_to_do);
+            if scores.contains_key(&(n, neighbour_direction)) {
+                let current_neighbour_score = scores.get_mut(&(n, neighbour_direction)).unwrap();
+                if neighbour_score < *current_neighbour_score {
+                    *current_neighbour_score = neighbour_score;
+                    points_to_do.push((n, neighbour_direction));
                 }
+            } else {
+                scores.insert((n, neighbour_direction), neighbour_score);
+                points_to_do.push((n, neighbour_direction));
             }
+        }
+    }
 
-            let new_distance: Option<usize> = new_tile_map.get_distance_recursive(new_tile_map.start, &mut vec![Direction::Right], &mut distances);
-            if new_distance.is_some() {
-                println!("({}) New distance with blocker {:?}", k, b);
-                println!("\t{:?}", new_distance.unwrap() - 1);
-                if new_distance.unwrap() - 1 == best_path_length {
-                    let full_path: Vec<Position> = new_tile_map.get_path(new_tile_map.start, &distances);
-                    unique_points.extend(HashSet::<Position>::from_iter(full_path));
-                    println!("\tunique points len = {:?}", unique_points.len());
-                    let current_all_path_points: Vec<Position> = new_tile_map.get_path(tile_map.start, &distances);
-                    let current_path_points_hash: HashSet<Position> = HashSet::from_iter(current_all_path_points.clone());
-                    println!("\tThere are {} different intersections", current_path_points_hash.difference(&all_path_points_hash).collect::<Vec<&Position>>().len());
+    return scores;
+}
 
-                    if neighbours.len() == 4 {
-                        println!("\t{:?} has 4 neighbours", b);
-                        let current_intersection_index_option: Option<usize> = current_all_path_points.iter().position(|x| x == *intersection);
-                        if current_intersection_index_option.is_none() {
-                            println!("\t\tCurrent intersection not included in new path.");
-                        } else {
-                            let current_intersection_index: usize = current_all_path_points.iter().position(|x| x == *intersection).unwrap();
-                            block_sites.push(current_all_path_points[current_intersection_index + 1]);
-                            println!("\t\tAdding new block site at {:?}", block_sites.last().unwrap());
+fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
+    let input_lines: Vec<String> = generic::read_in_file(input_filename.as_str());
+    let tile_map: TileMap = TileMap::new(input_lines);
+    
+    let scores_from_start: HashMap<(Position, Direction), usize> = djikstra_lowest_score(&tile_map.get_empty_points(), &tile_map.start, &Direction::Right);
+    let shortest_score: usize = Direction::iter().map(|d| scores_from_start.get(&(tile_map.end, d))).filter(|x| x.is_some()).map(|x| *x.unwrap()).min().unwrap();
+    let scores_from_end: HashMap<(Position, Direction), usize> = djikstra_lowest_score(&tile_map.get_empty_points(), &tile_map.end, &Direction::Down);
+
+    let mut good_points_count: usize = 0;
+    for p in tile_map.get_empty_points() {
+        let mut finished_point = false;
+        for d1 in Direction::iter() {
+            let score_from_start: Option<&usize> = scores_from_start.get(&(p, d1));
+            if score_from_start.is_some() {
+                for d2 in Direction::iter() {
+                    let score_from_end: Option<&usize> = scores_from_end.get(&(p, d2));
+                    if score_from_end.is_some() {
+                        let mut score_sum: usize = *score_from_start.unwrap() + *score_from_end.unwrap();
+                        if d1 != d2.reverse() {
+                            // when d1 == d2.reverse(), it's going in the same direction.
+                            // otherwise add offset of extra 1000 for new turn.
+                            score_sum += 1000;
+                        }
+                        if score_sum == shortest_score {
+                            good_points_count += 1;
+                            finished_point = true;
+                            break;
                         }
                     }
                 }
             }
-            block_index += 1;
-        }
-
-        j += 1;
-        if j == 10 {
-            // break;
+            if finished_point {
+                break;
+            }
         }
     }
-
-
+    
     if !part_2 {
-        return best_path_length;
+        return shortest_score;
     } else {
-        return unique_points.len();
+        return good_points_count;
     }
 }
 

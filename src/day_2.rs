@@ -1,133 +1,53 @@
 const INPUTS_FOLDER: &str = "inputs/day_2";
 
+use itertools::Itertools;
+
 use crate::generic;
 
-#[derive(Debug, PartialEq)]
-enum ReportSafety {
-    Safe,
-    Unsafe,
-}
-
-#[derive(Debug, Clone)]
-struct Report {
-    levels: Vec<usize>,
-}
-
-impl From<&String> for Report {
-    fn from(value: &String) -> Self {
-        return Self{levels: value.split(" ").map(|x| x.parse::<usize>().expect("Bad integer given")).collect::<Vec<usize>>()};
-    }
-}
-
-impl Report {
-    fn safety(&self) -> ReportSafety {
+fn report_is_safe(report: &Vec<usize>, ignore_count: usize) -> bool {
+    if ignore_count == 0 {
+        // println!("Checking report {:?}", report);
         let mut increases: bool = true;
         let mut decreases: bool = true;
-        let mut difference: i32;
-        for i in 1..self.levels.len() {
-            difference = self.levels[i] as i32 - self.levels[i - 1] as i32;
+        for i in 1..report.len() {
+            let difference: i32 = report[i] as i32 - report[i - 1] as i32;
             if difference.abs() < 1 || difference.abs() > 3 {
-                return ReportSafety::Unsafe;
+                // Difference up or down must be 1 <= x <= 3.
+                return false;
             }
 
             increases = increases & (difference > 0);
             decreases = decreases & (difference < 0);
 
             if !increases && !decreases {
-                return ReportSafety::Unsafe;
+                return false;
             }
         }
-
-        return ReportSafety::Safe;
-    }
-
-    fn remove_level(&self, target_level_index: usize) -> Self {
-        let mut new_report: Self = self.clone();
-        new_report.levels.remove(target_level_index);
-
-        println!("old report = {:?}", self);
-        println!("new report = {:?}", new_report);
-
-        return new_report;
-    }
-
-    fn safety_part2(&self) -> ReportSafety {
-        let mut increases: bool = true;
-        let mut increases_1_problem: bool = false;
-        let mut decreases: bool = true;
-        let mut decreases_1_problem: bool = false;
-        let mut difference: i32;
-        let mut difference_1_problem: bool = false;
-        
-        println!("Running {:?}", self);
-
-        for i in 1..self.levels.len() {
-            difference = self.levels[i] as i32 - self.levels[i - 1] as i32;
-            if difference.abs() < 1 || difference.abs() > 3 {
-                match self.remove_level(i).safety() {
-                    ReportSafety::Safe => return ReportSafety::Safe,
-                    ReportSafety::Unsafe => return self.remove_level(i - 1).safety(),
+        return true;
+    } else {
+        for combo in (0..report.len()).combinations(ignore_count) {
+            let mut local_report: Vec<usize> = Vec::new();
+            for i in 0..report.len() {
+                if !combo.contains(&i) {
+                    local_report.push(report[i]);
                 }
             }
-
-            if difference > 0 {
-                if decreases {
-                    match self.remove_level(i).safety() {
-                        ReportSafety::Safe => return ReportSafety::Safe,
-                        ReportSafety::Unsafe => match self.remove_level(i - 1).safety() {
-                            ReportSafety::Safe => return ReportSafety::Safe,
-                            ReportSafety::Unsafe => decreases = false,
-                        }
-                    }
-                }
-            } else if difference < 0 {
-                if increases {
-                    match self.remove_level(i).safety() {
-                        ReportSafety::Safe => return ReportSafety::Safe,
-                        ReportSafety::Unsafe => match self.remove_level(i - 1).safety() {
-                            ReportSafety::Safe => return ReportSafety::Safe,
-                            ReportSafety::Unsafe => increases = false,
-                        }
-                    }
-                }
-            }
-
-            println!("\tdifference={}", difference);
-            println!("\tincreases={}", increases);
-            println!("\tincreases_1_problem={}", increases_1_problem);
-            println!("\tdecreases={}", decreases);
-            println!("\tdecreases_1_problem={}", decreases_1_problem);
-
-            
-
-            if !increases && !decreases {
-                return ReportSafety::Unsafe;
+            if report_is_safe(&local_report, 0) {
+                return true;
             }
         }
-
-        return ReportSafety::Safe;
+        return report_is_safe(report, 0);
     }
 }
 
-
-
 fn solve_puzzle(input_filename: String, part_2: bool) -> usize {
     let input_lines: Vec<String> = generic::read_in_file(input_filename.as_str());
-
-    let reports: Vec<Report> = input_lines.iter().map(|x| Report::from(x)).collect::<Vec<Report>>();
-
-    for r in reports.iter() {
-        if !part_2 {
-            println!("{:?}: {:?}", r, r.safety());
-        } else {
-            println!("{:?}: {:?}", r, r.safety_part2());
-        }
-    }
+    let reports: Vec<Vec<usize>> = input_lines.iter().map(|x| x.split(" ").map(|y| y.parse::<usize>().unwrap()).collect::<Vec<usize>>()).collect::<Vec<Vec<usize>>>();
 
     if !part_2 {
-        return reports.iter().filter(|x| x.safety() == ReportSafety::Safe).collect::<Vec<&Report>>().len();
+        return reports.iter().filter(|x| report_is_safe(x, 0)).collect::<Vec<&Vec<usize>>>().len();
     } else {
-        return reports.iter().filter(|x| x.safety_part2() == ReportSafety::Safe).collect::<Vec<&Report>>().len();
+        return reports.iter().filter(|x| report_is_safe(x, 1)).collect::<Vec<&Vec<usize>>>().len();
     }
 }
 
@@ -152,18 +72,18 @@ mod tests {
             "54 57 59 59 61"
         ];
 
-        let reports = report_strings.iter().map(|x| Report::from(&x.to_string())).collect::<Vec<Report>>();
+        let reports: Vec<Vec<usize>> = report_strings.iter().map(|x| x.split(" ").map(|y| y.parse::<usize>().unwrap()).collect::<Vec<usize>>()).collect::<Vec<Vec<usize>>>();
 
-        assert!(reports[0].safety_part2() == ReportSafety::Safe);
-        assert!(reports[1].safety_part2() == ReportSafety::Safe);
-        assert!(reports[2].safety_part2() == ReportSafety::Safe);
-        assert!(reports[3].safety_part2() == ReportSafety::Safe);
-        assert!(reports[4].safety_part2() == ReportSafety::Safe);
-        assert!(reports[5].safety_part2() == ReportSafety::Unsafe);
-        assert!(reports[6].safety_part2() == ReportSafety::Unsafe);
-        assert!(reports[7].safety_part2() == ReportSafety::Safe);
-        assert!(reports[8].safety_part2() == ReportSafety::Unsafe);
-        assert!(reports[9].safety_part2() == ReportSafety::Safe);
+        assert!(report_is_safe(&reports[0], 1) == true);
+        assert!(report_is_safe(&reports[1], 1) == true);
+        assert!(report_is_safe(&reports[2], 1) == true);
+        assert!(report_is_safe(&reports[3], 1) == true);
+        assert!(report_is_safe(&reports[4], 1) == true);
+        assert!(report_is_safe(&reports[5], 1) == false);
+        assert!(report_is_safe(&reports[6], 1) == false);
+        assert!(report_is_safe(&reports[7], 1) == true);
+        assert!(report_is_safe(&reports[8], 1) == false);
+        assert!(report_is_safe(&reports[9], 1) == true);
     }
 
     #[test]
